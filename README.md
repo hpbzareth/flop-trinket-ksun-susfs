@@ -63,7 +63,7 @@ All AnyKernel3 flashable packages and corresponding Manager APKs are published u
 - **`KernelSU_Next_v3.4.2_uapi5-33355-release.apk`**: For KernelSU-Next UAPI v5 (stable release).
 - **`SukiSU_Nova_v3.0.0_30000-release.apk`**: For SukiSU Ultra (supports KPM KernelPatch Modules).
 - **`KernelSU_v3.3.1-50_32730-release.apk`**: For KowSU / XXKSU builds.
-- **`KernelSU_v0.9.5_11858-release.apk`**: For Official KernelSU v0.9.5 legacy.
+- **`KernelSU_v0.9.5_11872-release.apk`**: For Official KernelSU v0.9.5 legacy.
 - **`KernelSU_v3.3.1_32680-release.apk`**: For Official KernelSU modern.
 - **`APatch_11282_e8e4651_HEAD-release-signed.apk`**: Official APatch Manager (KernelPatch).
 - **`FolkPatch_115404_0f3f42ba_on_main-release.apk`**: FolkPatch Manager (modern APatch redesign).
