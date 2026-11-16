@@ -253,8 +253,9 @@ jobs:
         if: inputs.make_release == true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FINAL_ZIP: ${{ steps.package.outputs.final_zip }}
         run: |
           cd $GITHUB_WORKSPACE/output
           RELEASE_TAG="${{ inputs.release_tag }}"
           echo "=== Uploading to Release: $RELEASE_TAG ==="
-          gh release upload "$RELEASE_TAG" "$FINAL_ZIP_NAME" "${FINAL_ZIP_NAME}.sha256" --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$RELEASE_TAG" "$FINAL_ZIP" "${FINAL_ZIP}.sha256" --repo "$GITHUB_REPOSITORY" --clobber
