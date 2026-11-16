@@ -255,7 +255,6 @@ jobs:
           cp -v "$RAW_ZIP" "$GITHUB_WORKSPACE/output/$FINAL_ZIP_NAME"
 
           cd $GITHUB_WORKSPACE/output
-          sha256sum "$FINAL_ZIP_NAME" > "${FINAL_ZIP_NAME}.sha256"
           echo "final_zip=$FINAL_ZIP_NAME" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
           ls -lh
@@ -279,7 +278,7 @@ jobs:
           echo "=== Uploading $FINAL_ZIP to Release: $RELEASE_TAG ==="
           for attempt in {1..5}; do
             echo "Upload attempt $attempt..."
-            if gh release upload "$RELEASE_TAG" "$FINAL_ZIP" "${FINAL_ZIP}.sha256" --repo "$GITHUB_REPOSITORY" --clobber; then
+            if gh release upload "$RELEASE_TAG" "$FINAL_ZIP" --repo "$GITHUB_REPOSITORY" --clobber; then
               echo "Upload successful!"
               exit 0
             fi
