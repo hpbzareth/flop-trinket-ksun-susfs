@@ -51,9 +51,9 @@ All AnyKernel3 flashable packages and corresponding Manager APKs are published u
 | `Floppy_v2.0b-KSUNext-uapi6-NoSUSFS-mitrinket-*.zip` | **KernelSU-Next v3.4.2** | **v6** | ❌ None | `KernelSU_Next_v3.4.2_uapi6-33553-release.apk` |
 | `Floppy_v2.0b-KSUNext-uapi5-SUSFS-mitrinket-*.zip` | **KernelSU-Next v3.4.2** | **v5** | ✅ v2.2.0 | `KernelSU_Next_v3.4.2_uapi5-33355-release.apk` |
 | `Floppy_v2.0b-KSUNext-uapi5-NoSUSFS-mitrinket-*.zip` | **KernelSU-Next v3.4.2** | **v5** | ❌ None | `KernelSU_Next_v3.4.2_uapi5-33355-release.apk` |
-| `Floppy_v2.0b-SukiSU-uapi5-SUSFS-mitrinket-*.zip` | **SukiSU Ultra (BakaSU)** | **v5** | ✅ v2.2.0 + KPM | `SukiSU_Nova_v3.0.0_30000-release.apk` |
+| `Floppy_v2.0b-SukiSU-uapi6-SUSFS-mitrinket-*.zip` | **SukiSU Ultra (Nova Ready)** | **v6** | ✅ v2.2.0 + KPM | `SukiSU_Nova_v3.0.0_30000-release.apk` |
 | `Floppy_v2.0b-KowSU-XXKSU-mitrinket-*.zip` | **KowSU / XXKSU (Legacy)** | **v6** | Configurable | `KernelSU_v3.3.1-50_32730-release.apk` |
-| `Floppy_v2.0b-Official-KernelSU-v0.9.5-mitrinket-*.zip` | **Official KernelSU (tiann v0.9.5)** | **v1** | ❌ None | `KernelSU_v0.9.5_11858-release.apk` / `KernelSU_v3.3.1_32680-release.apk` |
+| `Floppy_v2.0b-Official-KernelSU-v0.9.5-mitrinket-*.zip` | **Official KernelSU (tiann v0.9.5)** | **v1** | ❌ None | `KernelSU_v0.9.5_11872-release.apk` / `KernelSU_v3.3.1_32680-release.apk` |
 | `Floppy_v2.0b-Vanilla-APatch-Folkpatch-mitrinket-*.zip` | **Vanilla (APatch & FolkPatch Ready)** | — | — | Use `APatch_11282_*.apk` or `FolkPatch_115404_*.apk` |
 
 ---

@@ -169,13 +169,15 @@ jobs:
               ;;
             sukisu_uapi5)
               BUILD_OPTS="sc"
-              VARIANT_TAG="SukiSU-uapi5-SUSFS"
-              LOCAL_VER="-Floppy-SukiSU-uapi5-susfs"
+              VARIANT_TAG="SukiSU-uapi6-SUSFS"
+              LOCAL_VER="-Floppy-SukiSU-uapi6-susfs"
               # Enable multi-manager support in sukisu.config
               sed -i 's/# CONFIG_KSU_MULTI_MANAGER_SUPPORT is not set/CONFIG_KSU_MULTI_MANAGER_SUPPORT=y/' arch/arm64/configs/sukisu.config
               # Patch EXPECTED_HASH_BAKASU to match SukiSU Nova v3.0.0 key (size 0x35c, hash 947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef)
               sed -i 's/EXPECTED_SIZE_BAKASU 0x377/EXPECTED_SIZE_BAKASU 0x35c/' drivers/sukisu/kernel/manager/manager_sign.h
               sed -i 's/EXPECTED_HASH_BAKASU "d3469712b6214462764a1d8d3e5cbe1d6819a0b629791b9f4101867821f1df64"/EXPECTED_HASH_BAKASU "947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef"/' drivers/sukisu/kernel/manager/manager_sign.h
+              # Bump SukiSU UAPI version from 5 to 6 to match SukiSU Nova v3.0.0 (30000-6)
+              sed -i 's/KERNEL_SU_UAPI_VERSION = 5/KERNEL_SU_UAPI_VERSION = 6/' drivers/sukisu/uapi/supercall.h
               ;;
             kowsu)
               BUILD_OPTS="xc"
