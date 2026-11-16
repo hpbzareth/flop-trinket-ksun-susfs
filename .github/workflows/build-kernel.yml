@@ -14,15 +14,19 @@ on:
           - "all"
         default: "mitrinket"
       su_variant:
-        description: "SU / Root Variant (k: KernelSU-Next 3.4.2 + SuSFS 2.x, s: BakaSU, x: XXKSU, vanilla: Stock)"
+        description: "SU / Root Variant to build"
         required: true
         type: choice
         options:
-          - "k"
-          - "s"
-          - "x"
+          - "all_variants"
+          - "ksun_uapi6_nosusfs"
+          - "ksun_uapi5_susfs"
+          - "ksun_uapi5_nosusfs"
+          - "sukisu_uapi5"
+          - "kowsu"
+          - "ksun_uapi6_susfs"
           - "vanilla"
-        default: "k"
+        default: "all_variants"
       clang_type:
         description: "Toolchain / Compiler (proton: Proton Clang 13 [recommended], aosp: AOSP Clang, zyc: ZyC Clang, rm69: RastaMod69)"
         required: true
@@ -33,31 +37,40 @@ on:
           - "zyc"
           - "rm69"
         default: "proton"
-      kernel_repo:
-        description: "Kernel Source Git Repository"
-        required: true
-        type: string
-        default: "https://github.com/FlopKernel-Series/flop_trinket-mi_kernel.git"
-      kernel_branch:
-        description: "Kernel Git Branch"
-        required: true
-        type: string
-        default: "floppy-unity"
-      custom_localversion:
-        description: "Custom localversion suffix (leave default or customize)"
+      release_tag:
+        description: "GitHub Release Tag to publish/update"
         required: false
         type: string
-        default: "-Floppy-KSUN-SuSFS"
+        default: "Revision-1"
       make_release:
-        description: "Publish GitHub Release on completion"
+        description: "Publish/Attach to GitHub Release"
         required: false
         type: boolean
         default: true
 
 jobs:
-  build:
-    name: Build Trinket ${{ inputs.target_device }} (${{ inputs.su_variant }})
+  setup:
+    name: Setup Build Matrix
     runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          if [ "${{ inputs.su_variant }}" = "all_variants" ]; then
+            echo 'matrix=["ksun_uapi6_nosusfs", "ksun_uapi5_susfs", "ksun_uapi5_nosusfs", "sukisu_uapi5", "kowsu"]' >> $GITHUB_OUTPUT
+          else
+            echo 'matrix=["${{ inputs.su_variant }}"]' >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    name: Build ${{ matrix.variant }} (${{ inputs.target_device }})
+    needs: setup
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ${{ fromJson(needs.setup.outputs.matrix) }}
     permissions:
       contents: write
 
@@ -92,65 +105,99 @@ jobs:
 
       - name: Clone Kernel Source
         run: |
-          echo "=== Cloning ${{ inputs.kernel_repo }} branch ${{ inputs.kernel_branch }} ==="
-          git clone --depth=1 -b "${{ inputs.kernel_branch }}" "${{ inputs.kernel_repo }}" $GITHUB_WORKSPACE/kernel
+          echo "=== Cloning FlopKernel-Series/flop_trinket-mi_kernel branch floppy-unity ==="
+          git clone --depth=1 -b floppy-unity https://github.com/FlopKernel-Series/flop_trinket-mi_kernel.git $GITHUB_WORKSPACE/kernel
           cd $GITHUB_WORKSPACE/kernel
           echo "Latest commit:"
           git log -1 --oneline
 
-      - name: Prepare Build Environment & Compatibility Patches
+      - name: Configure Variant & Patches
+        id: configure
         run: |
           cd $GITHUB_WORKSPACE
-          # Create dummy secret files to prevent ckbuild.sh telegram check from failing
           touch bot_token chat chat_test
 
           cd $GITHUB_WORKSPACE/kernel
 
           # 1. Fix duplicate --plugin-opt=-import-instr-limit in Makefile that causes ld.lld error during vdso build
-          echo "Fixing duplicate import-instr-limit in Makefile..."
           sed -i '/--plugin-opt=-import-instr-limit=5/d' Makefile
 
           # 2. Patch post.sh to ensure mitrinket unified device codename check matches properly (bash [[ ... || ... ]])
           if [ -f "build/scripts/post.sh" ]; then
-            echo "Patching build/scripts/post.sh codename check..."
             sed -i 's/"$CODENAME" == "unified"/"$CODENAME" == "mitrinket" || "$CODENAME" == "unified"/' build/scripts/post.sh
           fi
 
-          # 3. Add set -e to ckbuild.sh so build errors fail fast with clear logs
+          # 3. Add set -e to ckbuild.sh & disable 0x0.st upload timeout
           if [ -f "build/ckbuild.sh" ]; then
             sed -i '1a set -e' build/ckbuild.sh
-            # Disable 0x0.st upload hang in CI (we upload directly to GitHub Artifacts / Releases)
-            echo "Configuring LOG_UPLOAD=0 to avoid 0x0.st CI timeout..."
             sed -i 's/LOG_UPLOAD=1/LOG_UPLOAD=0/' build/ckbuild.sh
           fi
 
-          # 4. Set custom localversion if provided
-          if [ -n "${{ inputs.custom_localversion }}" ] && [ -f "build/scripts/build.sh" ]; then
-            echo "Configuring custom localversion: ${{ inputs.custom_localversion }}"
-            sed -i 's/VERSION_STR="\\"-Floppy-\$FK_VER-\$CK_TYPE_SHORT\\""/VERSION_STR="\\"${{ inputs.custom_localversion }}\\""/' build/scripts/build.sh
-          fi
+          VARIANT="${{ matrix.variant }}"
+          BUILD_OPTS="c"
+          VARIANT_TAG=""
+          LOCAL_VER=""
 
-      - name: Inspect KernelSU-Next & SuSFS Status
-        run: |
-          cd $GITHUB_WORKSPACE/kernel
-          echo "=== Checking KernelSU-Next and SuSFS configuration ==="
-          if [ -f "include/linux/susfs.h" ]; then
-            echo "SuSFS Header Info:"
-            grep -E "SUSFS_VERSION|SUSFS_VARIANT" include/linux/susfs.h || true
-          fi
+          case "$VARIANT" in
+            ksun_uapi6_susfs)
+              BUILD_OPTS="kc"
+              VARIANT_TAG="KSUNext-uapi6-SUSFS"
+              LOCAL_VER="-Floppy-KSUN-uapi6-susfs"
+              ;;
+            ksun_uapi6_nosusfs)
+              BUILD_OPTS="kc"
+              VARIANT_TAG="KSUNext-uapi6-NoSUSFS"
+              LOCAL_VER="-Floppy-KSUN-uapi6-nosusfs"
+              # Disable SuSFS in ksu.config
+              sed -i 's/^CONFIG_KSU_SUSFS/# CONFIG_KSU_SUSFS/g' arch/arm64/configs/ksu.config
+              ;;
+            ksun_uapi5_susfs)
+              BUILD_OPTS="kc"
+              VARIANT_TAG="KSUNext-uapi5-SUSFS"
+              LOCAL_VER="-Floppy-KSUN-uapi5-susfs"
+              # Set UAPI version to 5 in supercall.h
+              sed -i 's/#define KERNEL_SU_UAPI_VERSION 6/#define KERNEL_SU_UAPI_VERSION 5/' drivers/kernelsu/uapi/supercall.h
+              ;;
+            ksun_uapi5_nosusfs)
+              BUILD_OPTS="kc"
+              VARIANT_TAG="KSUNext-uapi5-NoSUSFS"
+              LOCAL_VER="-Floppy-KSUN-uapi5-nosusfs"
+              # Set UAPI version to 5 and disable SuSFS
+              sed -i 's/#define KERNEL_SU_UAPI_VERSION 6/#define KERNEL_SU_UAPI_VERSION 5/' drivers/kernelsu/uapi/supercall.h
+              sed -i 's/^CONFIG_KSU_SUSFS/# CONFIG_KSU_SUSFS/g' arch/arm64/configs/ksu.config
+              ;;
+            sukisu_uapi5)
+              BUILD_OPTS="sc"
+              VARIANT_TAG="SukiSU-uapi5-SUSFS"
+              LOCAL_VER="-Floppy-SukiSU-uapi5-susfs"
+              ;;
+            kowsu)
+              BUILD_OPTS="xc"
+              VARIANT_TAG="KowSU-XXKSU"
+              LOCAL_VER="-Floppy-KowSU-XXKSU"
+              ;;
+            vanilla)
+              BUILD_OPTS="c"
+              VARIANT_TAG="Vanilla"
+              LOCAL_VER="-Floppy-Vanilla"
+              ;;
+            *)
+              echo "Unknown variant: $VARIANT"
+              exit 1
+              ;;
+          esac
 
-          if [ -f "drivers/kernelsu/uapi/supercall.h" ]; then
-            echo "KernelSU-Next UAPI Version:"
-            grep "KERNEL_SU_UAPI_VERSION" drivers/kernelsu/uapi/supercall.h || true
-          fi
+          echo "Configured variant: $VARIANT -> Tag: $VARIANT_TAG, Build Opts: $BUILD_OPTS, LocalVer: $LOCAL_VER"
+          echo "build_opts=$BUILD_OPTS" >> $GITHUB_OUTPUT
+          echo "variant_tag=$VARIANT_TAG" >> $GITHUB_OUTPUT
+          echo "local_ver=$LOCAL_VER" >> $GITHUB_OUTPUT
 
-          if [ -f "arch/arm64/configs/ksu.config" ]; then
-            echo "arch/arm64/configs/ksu.config contents:"
-            cat arch/arm64/configs/ksu.config
+          # Patch localversion in build.sh
+          if [ -f "build/scripts/build.sh" ]; then
+            sed -i "s/VERSION_STR=\"\\\\\"-Floppy-\\\$FK_VER-\\\$CK_TYPE_SHORT\\\\\"\"/VERSION_STR=\"\\\\\"$LOCAL_VER\\\\\"\"/" build/scripts/build.sh
           fi
 
       - name: Compile Kernel
-        id: compile
         run: |
           cd $GITHUB_WORKSPACE/kernel
           export WP="$GITHUB_WORKSPACE"
@@ -161,96 +208,53 @@ jobs:
 
           echo "=== Starting Kernel Compilation ==="
           echo "Device Target : ${{ inputs.target_device }}"
-          echo "SU Variant    : ${{ inputs.su_variant }}"
-          echo "Clang Type    : $CLANG_TYPE"
-          echo "Workspace WP  : $WP"
+          echo "Build Options : ${{ steps.configure.outputs.build_opts }}"
+          echo "Variant Tag   : ${{ steps.configure.outputs.variant_tag }}"
 
           START_TIME=$(date +%s)
-
-          if [ "${{ inputs.su_variant }}" = "vanilla" ]; then
-            bash do_build.sh "${{ inputs.target_device }}" c
-          else
-            bash do_build.sh "${{ inputs.target_device }}" "${{ inputs.su_variant }}c"
-          fi
-
+          bash do_build.sh "${{ inputs.target_device }}" "${{ steps.configure.outputs.build_opts }}"
           END_TIME=$(date +%s)
-          DURATION=$((END_TIME - START_TIME))
-          echo "Compilation finished in $DURATION seconds."
+          echo "Compilation finished in $((END_TIME - START_TIME)) seconds."
 
-      - name: Package & Verify Output
+      - name: Package & Name Output
         id: package
         run: |
           cd $GITHUB_WORKSPACE
           mkdir -p $GITHUB_WORKSPACE/output
-          echo "=== Locating built AnyKernel3 flashable zip ==="
-          find kernel/build/ -name "*.zip" -exec cp -v {} $GITHUB_WORKSPACE/output/ \;
+          BUILD_DATE=$(date "+%Y%m%d-%H%M")
+          VARIANT_TAG="${{ steps.configure.outputs.variant_tag }}"
+          TARGET_DEV="${{ inputs.target_device }}"
 
-          ZIP_COUNT=$(ls -1 $GITHUB_WORKSPACE/output/*.zip 2>/dev/null | wc -l)
-          if [ "$ZIP_COUNT" -eq 0 ]; then
-            echo "::error::No flashable zip found in kernel/build/! Build may have failed."
+          echo "=== Locating built AnyKernel3 flashable zip ==="
+          RAW_ZIP=$(find kernel/build/ -name "*.zip" | head -n 1)
+          if [ -z "$RAW_ZIP" ] || [ ! -f "$RAW_ZIP" ]; then
+            echo "::error::No flashable zip found in kernel/build/!"
             exit 1
           fi
 
+          FINAL_ZIP_NAME="Floppy_v2.0b-${VARIANT_TAG}-${TARGET_DEV}-${BUILD_DATE}.zip"
+          cp -v "$RAW_ZIP" "$GITHUB_WORKSPACE/output/$FINAL_ZIP_NAME"
+
           cd $GITHUB_WORKSPACE/output
-          echo "=== Generated Packages ==="
-          ls -lh *.zip
-
-          echo "=== Calculating Checksums ==="
-          sha256sum *.zip | tee sha256.txt
-          md5sum *.zip | tee md5.txt
-
-          ZIP_NAME=$(basename $(ls -1 *.zip | head -n 1))
-          echo "primary_zip=$ZIP_NAME" >> $GITHUB_OUTPUT
-          BUILD_DATE=$(date "+%Y%m%d-%H%M")
+          sha256sum "$FINAL_ZIP_NAME" > "${FINAL_ZIP_NAME}.sha256"
+          echo "final_zip=$FINAL_ZIP_NAME" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
-
-          # Copy kernel image and dtbo for artifact archiving if present
-          if [ -f "$GITHUB_WORKSPACE/kernel/out/arch/arm64/boot/Image.gz-dtb" ]; then
-            cp -v "$GITHUB_WORKSPACE/kernel/out/arch/arm64/boot/Image.gz-dtb" "$GITHUB_WORKSPACE/output/"
-          fi
+          ls -lh
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Trinket-${{ inputs.target_device }}-${{ inputs.su_variant }}-${{ steps.package.outputs.build_date }}
+          name: Trinket-${{ inputs.target_device }}-${{ matrix.variant }}-${{ steps.package.outputs.build_date }}
           path: |
             ${{ github.workspace }}/output/*
             ${{ github.workspace }}/kernel/out/.config
 
-      - name: Publish GitHub Release
+      - name: Attach Artifact to GitHub Release
         if: inputs.make_release == true
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: trinket-${{ inputs.target_device }}-${{ inputs.su_variant }}-${{ steps.package.outputs.build_date }}
-          name: "FloppyKernel Trinket [${{ inputs.target_device }}] - KernelSU-Next 3.4.2 & SuSFS 2.x (${{ steps.package.outputs.build_date }})"
-          draft: false
-          prerelease: false
-          generate_release_notes: false
-          body: |
-            ## FloppyKernel for Xiaomi Trinket (Redmi Note 8/8T & Mi A3)
-            
-            Automated build compiled via GitHub Actions.
-            
-            ### 📱 Build Details
-            - **Target Device:** `${{ inputs.target_device }}` (mitrinket: unified Redmi Note 8/8T `ginkgo`/`willow` & Mi A3 `laurel_sprout`)
-            - **SU Variant:** `${{ inputs.su_variant }}` (KernelSU-Next v3.4.2 with SuSFS 2.x)
-            - **Toolchain:** `${{ inputs.clang_type }}` (Proton Clang 13)
-            - **Kernel Version:** `Linux 4.14.357`
-            - **KernelSU-Next:** `v3.4.2` (UAPI v5/v6)
-            - **SuSFS:** `v2.2.0` (4.14 non-GKI stealth root hiding)
-            - **Hook Method:** `CONFIG_KSU_MANUAL_HOOK=y` (direct inline hooking)
-            - **Build Date:** `${{ steps.package.outputs.build_date }}`
-            
-            ### 📦 Checksums (SHA-256)
-            ```text
-            $(cat $GITHUB_WORKSPACE/output/sha256.txt)
-            ```
-            
-            ### ⚡ Flashing Instructions
-            1. Reboot device into TWRP / OrangeFox Custom Recovery.
-            2. Flash the AnyKernel3 `.zip` file.
-            3. Reboot system and enjoy stealth root with KernelSU-Next & SuSFS!
-          files: |
-            ${{ github.workspace }}/output/*.zip
-            ${{ github.workspace }}/output/sha256.txt
-            ${{ github.workspace }}/output/md5.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd $GITHUB_WORKSPACE/output
+          RELEASE_TAG="${{ inputs.release_tag }}"
+          echo "=== Uploading to Release: $RELEASE_TAG ==="
+          gh release upload "$RELEASE_TAG" "$FINAL_ZIP_NAME" "${FINAL_ZIP_NAME}.sha256" --repo "$GITHUB_REPOSITORY" --clobber
