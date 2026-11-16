@@ -47,12 +47,12 @@ Tất cả các bản build zip và APK Manager tương ứng được đính k�
 
 | Tên gói ZIP | Biến thể Root | UAPI | SuSFS Stealth | APK Manager tương ứng |
 |---|---|:---:|:---:|---|
-| `Floppy_v2.0b-KSUNext-uapi6-SUSFS-mitrinket-*.zip` | **KernelSU-Next v3.4.2** | **v6** | ✅ v2.2.0 | `KernelSU_Next_v3.4.2_uapi6-33553-release.apk` |
-| `Floppy_v2.0b-KSUNext-uapi6-NoSUSFS-mitrinket-*.zip` | **KernelSU-Next v3.4.2** | **v6** | ❌ Không | `KernelSU_Next_v3.4.2_uapi6-33553-release.apk` |
-| `Floppy_v2.0b-KSUNext-uapi5-SUSFS-mitrinket-*.zip` | **KernelSU-Next v3.4.2** | **v5** | ✅ v2.2.0 | `KernelSU_Next_v3.4.2_uapi5-33355-release.apk` |
-| `Floppy_v2.0b-KSUNext-uapi5-NoSUSFS-mitrinket-*.zip` | **KernelSU-Next v3.4.2** | **v5** | ❌ Không | `KernelSU_Next_v3.4.2_uapi5-33355-release.apk` |
-| `Floppy_v2.0b-SukiSU-uapi5-SUSFS-mitrinket-*.zip` | **SukiSU Ultra (BakaSU)** | **v5** | ✅ v2.2.0 + KPM | `SukiSU_Nova_v3.0.0_30000-release.apk` |
-| `Floppy_v2.0b-KowSU-XXKSU-mitrinket-*.zip` | **KowSU / XXKSU (Legacy)** | **v6** | Tùy chọn | `KernelSU_v3.3.1-50_32730-release.apk` |
+| `Floppy_v2.0b-KSUNext-uapi6-SUSFS-mitrinket-20261116-0708.zip` | **KernelSU-Next v3.4.2** | **v6** | ✅ v2.2.0 | `KernelSU_Next_v3.4.2_uapi6-33553-release.apk` |
+| `Floppy_v2.0b-KSUNext-uapi6-NoSUSFS-mitrinket-20261116-0809.zip` | **KernelSU-Next v3.4.2** | **v6** | ❌ Không | `KernelSU_Next_v3.4.2_uapi6-33553-release.apk` |
+| `Floppy_v2.0b-KSUNext-uapi5-SUSFS-mitrinket-20261116-0815.zip` | **KernelSU-Next v3.4.2** | **v5** | ✅ v2.2.0 | `KernelSU_Next_v3.4.2_uapi5-33355-release.apk` |
+| `Floppy_v2.0b-KSUNext-uapi5-NoSUSFS-mitrinket-20261116-0812.zip` | **KernelSU-Next v3.4.2** | **v5** | ❌ Không | `KernelSU_Next_v3.4.2_uapi5-33355-release.apk` |
+| `Floppy_v2.0b-SukiSU-uapi5-SUSFS-mitrinket-20261116-0816.zip` | **SukiSU Ultra (BakaSU)** | **v5** | ✅ v2.2.0 + KPM | `SukiSU_Nova_v3.0.0_30000-release.apk` |
+| `Floppy_v2.0b-KowSU-XXKSU-mitrinket-20261116-0809.zip` | **KowSU / XXKSU (Legacy)** | **v6** | Tùy chọn | `KernelSU_v3.3.1-50_32730-release.apk` |
 | `Floppy_v2.0b-Vanilla-mitrinket-*.zip` | **Vanilla (Stock Floppy)** | — | — | Không có root |
 
 ---
