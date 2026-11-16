@@ -19,12 +19,13 @@ on:
         type: choice
         options:
           - "all_variants"
+          - "ksun_uapi6_susfs"
           - "ksun_uapi6_nosusfs"
           - "ksun_uapi5_susfs"
           - "ksun_uapi5_nosusfs"
           - "sukisu_uapi5"
           - "kowsu"
-          - "ksun_uapi6_susfs"
+          - "official_ksu"
           - "vanilla"
         default: "all_variants"
       clang_type:
@@ -58,7 +59,7 @@ jobs:
       - id: set-matrix
         run: |
           if [ "${{ inputs.su_variant }}" = "all_variants" ]; then
-            echo 'matrix=["ksun_uapi6_susfs", "ksun_uapi6_nosusfs", "ksun_uapi5_susfs", "ksun_uapi5_nosusfs", "sukisu_uapi5", "kowsu"]' >> $GITHUB_OUTPUT
+            echo 'matrix=["ksun_uapi6_susfs", "ksun_uapi6_nosusfs", "ksun_uapi5_susfs", "ksun_uapi5_nosusfs", "sukisu_uapi5", "kowsu", "official_ksu", "vanilla"]' >> $GITHUB_OUTPUT
           else
             echo 'matrix=["${{ inputs.su_variant }}"]' >> $GITHUB_OUTPUT
           fi
@@ -91,7 +92,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential bc bison flex libssl-dev libelf-dev lz4 cpio kmod git curl \
             zip unzip file dwarves python3 python-is-python3 tar wget jq rsync xz-utils perl \
-            ccache binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi libncurses5-dev
+            ccache binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi libncurses5-dev xxd
           sudo apt-get install -y libtinfo5 || true
 
       - name: Setup Swap Memory
@@ -176,10 +177,28 @@ jobs:
               VARIANT_TAG="KowSU-XXKSU"
               LOCAL_VER="-Floppy-KowSU-XXKSU"
               ;;
+            official_ksu)
+              BUILD_OPTS="kc"
+              VARIANT_TAG="Official-KernelSU-v0.9.5"
+              LOCAL_VER="-Floppy-Official-KSU-v0.9.5"
+              # Replace drivers/kernelsu with official tiann/KernelSU v0.9.5
+              rm -rf drivers/kernelsu
+              git clone --depth=1 -b v0.9.5 https://github.com/tiann/KernelSU.git drivers/kernelsu
+              # Download official ksud-aarch64 and generate embed_ksud.c
+              curl -LSs https://github.com/tiann/KernelSU/releases/download/v0.9.5/ksud-aarch64-linux-android -o /tmp/ksud
+              chmod +x /tmp/ksud
+              xxd -i /tmp/ksud | sed 's/_tmp_ksud_len/ksud_size/' | sed 's/unsigned char _tmp_ksud/const char ksud/' > drivers/kernelsu/kernel/embed_ksud.c
+              # Set version and flags in drivers/kernelsu/kernel/Makefile
+              sed -i 's/KSU_GIT_VERSION := .*/KSU_GIT_VERSION := 11858/' drivers/kernelsu/kernel/Makefile || true
+              echo "ccflags-y += -w" >> drivers/kernelsu/kernel/Makefile
+              # Disable manual hook & susfs in ksu.config so it uses kprobes cleanly
+              sed -i 's/^CONFIG_KSU_MANUAL_HOOK/# CONFIG_KSU_MANUAL_HOOK/g' arch/arm64/configs/ksu.config
+              sed -i 's/^CONFIG_KSU_SUSFS/# CONFIG_KSU_SUSFS/g' arch/arm64/configs/ksu.config
+              ;;
             vanilla)
               BUILD_OPTS="c"
-              VARIANT_TAG="Vanilla"
-              LOCAL_VER="-Floppy-Vanilla"
+              VARIANT_TAG="Vanilla-APatch-Folkpatch"
+              LOCAL_VER="-Floppy-Vanilla-APatch-Folkpatch"
               ;;
             *)
               echo "Unknown variant: $VARIANT"

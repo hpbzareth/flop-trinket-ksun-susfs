@@ -47,13 +47,34 @@ Tất cả các bản build zip và APK Manager tương ứng được đính k�
 
 | Tên gói ZIP | Biến thể Root | UAPI | SuSFS Stealth | APK Manager tương ứng |
 |---|---|:---:|:---:|---|
-| `Floppy_v2.0b-KSUNext-uapi6-SUSFS-mitrinket-20261116-0708.zip` | **KernelSU-Next v3.4.2** | **v6** | ✅ v2.2.0 | `KernelSU_Next_v3.4.2_uapi6-33553-release.apk` |
-| `Floppy_v2.0b-KSUNext-uapi6-NoSUSFS-mitrinket-20261116-0809.zip` | **KernelSU-Next v3.4.2** | **v6** | ❌ Không | `KernelSU_Next_v3.4.2_uapi6-33553-release.apk` |
-| `Floppy_v2.0b-KSUNext-uapi5-SUSFS-mitrinket-20261116-0815.zip` | **KernelSU-Next v3.4.2** | **v5** | ✅ v2.2.0 | `KernelSU_Next_v3.4.2_uapi5-33355-release.apk` |
-| `Floppy_v2.0b-KSUNext-uapi5-NoSUSFS-mitrinket-20261116-0812.zip` | **KernelSU-Next v3.4.2** | **v5** | ❌ Không | `KernelSU_Next_v3.4.2_uapi5-33355-release.apk` |
-| `Floppy_v2.0b-SukiSU-uapi5-SUSFS-mitrinket-20261116-0816.zip` | **SukiSU Ultra (BakaSU)** | **v5** | ✅ v2.2.0 + KPM | `SukiSU_Nova_v3.0.0_30000-release.apk` |
-| `Floppy_v2.0b-KowSU-XXKSU-mitrinket-20261116-0809.zip` | **KowSU / XXKSU (Legacy)** | **v6** | Tùy chọn | `KernelSU_v3.3.1-50_32730-release.apk` |
-| `Floppy_v2.0b-Vanilla-mitrinket-*.zip` | **Vanilla (Stock Floppy)** | — | — | Không có root |
+| `Floppy_v2.0b-KSUNext-uapi6-SUSFS-mitrinket-*.zip` | **KernelSU-Next v3.4.2** | **v6** | ✅ v2.2.0 | `KernelSU_Next_v3.4.2_uapi6-33553-release.apk` |
+| `Floppy_v2.0b-KSUNext-uapi6-NoSUSFS-mitrinket-*.zip` | **KernelSU-Next v3.4.2** | **v6** | ❌ Không | `KernelSU_Next_v3.4.2_uapi6-33553-release.apk` |
+| `Floppy_v2.0b-KSUNext-uapi5-SUSFS-mitrinket-*.zip` | **KernelSU-Next v3.4.2** | **v5** | ✅ v2.2.0 | `KernelSU_Next_v3.4.2_uapi5-33355-release.apk` |
+| `Floppy_v2.0b-KSUNext-uapi5-NoSUSFS-mitrinket-*.zip` | **KernelSU-Next v3.4.2** | **v5** | ❌ Không | `KernelSU_Next_v3.4.2_uapi5-33355-release.apk` |
+| `Floppy_v2.0b-SukiSU-uapi5-SUSFS-mitrinket-*.zip` | **SukiSU Ultra (BakaSU)** | **v5** | ✅ v2.2.0 + KPM | `SukiSU_Nova_v3.0.0_30000-release.apk` |
+| `Floppy_v2.0b-KowSU-XXKSU-mitrinket-*.zip` | **KowSU / XXKSU (Legacy)** | **v6** | Tùy chọn | `KernelSU_v3.3.1-50_32730-release.apk` |
+| `Floppy_v2.0b-Official-KernelSU-v0.9.5-mitrinket-*.zip` | **Official KernelSU (tiann v0.9.5)** | **v1** | ❌ Không | `KernelSU_v0.9.5_11858-release.apk` hoặc `KernelSU_v3.3.1_32680-release.apk` |
+| `Floppy_v2.0b-Vanilla-APatch-Folkpatch-mitrinket-*.zip` | **Vanilla (APatch & FolkPatch Ready)** | — | — | Dùng **APatch Manager** (`APatch_11282_*.apk`) hoặc **FolkPatch Manager** (`FolkPatch_115404_*.apk`) để patch `boot.img` |
+
+---
+
+### 📦 Các file APK Manager đính kèm trong Release Revision-1:
+- `KernelSU_Next_v3.4.2_uapi6-33553-release.apk`: Dành cho KernelSU-Next UAPI 6.
+- `KernelSU_Next_v3.4.2_uapi5-33355-release.apk`: Dành cho KernelSU-Next UAPI 5 (bản phát hành chính thức).
+- `SukiSU_Nova_v3.0.0_30000-release.apk`: Dành cho SukiSU Ultra (BakaSU) có hỗ trợ KernelPatch Module (KPM).
+- `KernelSU_v3.3.1-50_32730-release.apk`: Dành cho biến thể KowSU / XXKSU.
+- `KernelSU_v0.9.5_11858-release.apk`: Dành cho Official KernelSU v0.9.5 legacy.
+- `KernelSU_v3.3.1_32680-release.apk`: Dành cho Official KernelSU hiện đại (tiann).
+- `APatch_11282_e8e4651_HEAD-release-signed.apk`: Quản lý root APatch qua KernelPatch.
+- `FolkPatch_115404_0f3f42ba_on_main-release.apk`: Quản lý root FolkPatch giao diện hiện đại mới nhất.
+
+---
+
+### 💡 Hướng dẫn cài đặt Root APatch / FolkPatch trên bản Vanilla:
+1. Flash file zip `Floppy_v2.0b-Vanilla-APatch-Folkpatch-mitrinket-*.zip` qua TWRP hoặc OrangeFox recovery.
+2. Khởi động vào Android, cài đặt file `APatch_11282_*.apk` hoặc `FolkPatch_115404_*.apk`.
+3. Mở ứng dụng APatch / FolkPatch, nhấn nút **Install / Patch**, nhập **SuperKey** (mật khẩu cấp quyền root cá nhân của bạn) rồi chọn boot image hoặc Patch Kernel.
+4. Khởi động lại máy. Kernel hoàn toàn hỗ trợ `CONFIG_KALLSYMS=y`, `CONFIG_KALLSYMS_ALL=y` và `CONFIG_KPROBES=y` cho APatch/FolkPatch.
 
 ---
 
@@ -83,9 +104,12 @@ Tất cả các bản build zip và APK Manager tương ứng được đính k�
 ## 🤝 Lời cảm ơn (Credits)
 
 - [FlopKernel-Series](https://github.com/FlopKernel-Series/flop_trinket-mi_kernel) — Cây nguồn FloppyKernel Trinket.
+- [tiann/KernelSU](https://github.com/tiann/KernelSU) — Dự án gốc KernelSU.
 - [KernelSU-Next](https://github.com/KernelSU-Next/KernelSU-Next) & [pershoot](https://github.com/pershoot/KernelSU-Next) — KernelSU-Next.
 - [SukiSU-Nova](https://github.com/SukiSU-Nova/SukiSU-Nova) & [Baka-SU](https://github.com/Baka-SU/BakaSU) — SukiSU Ultra & KPM.
 - [backslashxx](https://github.com/backslashxx/KernelSU) & [KOWX712](https://github.com/KOWX712/KernelSU) — XXKSU & KowSU.
+- [bmax121/APatch](https://github.com/bmax121/APatch) — Dự án root APatch & KernelPatch.
+- [LyraVoid/FolkPatch](https://github.com/LyraVoid/FolkPatch) — FolkPatch modern Root Manager.
 - [simonpunk](https://gitlab.com/simonpunk/susfs4ksu) — Siêu cơ chế ẩn root SuSFS.
 - [osm0sis](https://github.com/osm0sis/AnyKernel3) — AnyKernel3.
 - [kdrag0n](https://github.com/kdrag0n) — Toolchain Proton Clang.
