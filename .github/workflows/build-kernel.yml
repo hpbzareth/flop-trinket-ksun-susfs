@@ -58,7 +58,7 @@ jobs:
       - id: set-matrix
         run: |
           if [ "${{ inputs.su_variant }}" = "all_variants" ]; then
-            echo 'matrix=["ksun_uapi6_nosusfs", "ksun_uapi5_susfs", "ksun_uapi5_nosusfs", "sukisu_uapi5", "kowsu"]' >> $GITHUB_OUTPUT
+            echo 'matrix=["ksun_uapi6_susfs", "ksun_uapi6_nosusfs", "ksun_uapi5_susfs", "ksun_uapi5_nosusfs", "sukisu_uapi5", "kowsu"]' >> $GITHUB_OUTPUT
           else
             echo 'matrix=["${{ inputs.su_variant }}"]' >> $GITHUB_OUTPUT
           fi
@@ -257,5 +257,15 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/output
           RELEASE_TAG="${{ inputs.release_tag }}"
-          echo "=== Uploading to Release: $RELEASE_TAG ==="
-          gh release upload "$RELEASE_TAG" "$FINAL_ZIP" "${FINAL_ZIP}.sha256" --repo "$GITHUB_REPOSITORY" --clobber
+          echo "=== Uploading $FINAL_ZIP to Release: $RELEASE_TAG ==="
+          for attempt in {1..5}; do
+            echo "Upload attempt $attempt..."
+            if gh release upload "$RELEASE_TAG" "$FINAL_ZIP" "${FINAL_ZIP}.sha256" --repo "$GITHUB_REPOSITORY" --clobber; then
+              echo "Upload successful!"
+              exit 0
+            fi
+            echo "Upload failed or busy, retrying in 15s..."
+            sleep 15
+          done
+          echo "Failed to upload to release after 5 attempts"
+          exit 1
