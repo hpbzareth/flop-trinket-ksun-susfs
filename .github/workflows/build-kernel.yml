@@ -106,19 +106,25 @@ jobs:
 
           cd $GITHUB_WORKSPACE/kernel
 
-          # Patch post.sh to ensure mitrinket unified device codename check matches properly
+          # 1. Fix duplicate --plugin-opt=-import-instr-limit in Makefile that causes ld.lld error during vdso build
+          echo "Fixing duplicate import-instr-limit in Makefile..."
+          sed -i '/--plugin-opt=-import-instr-limit=5/d' Makefile
+
+          # 2. Patch post.sh to ensure mitrinket unified device codename check matches properly (bash [[ ... || ... ]])
           if [ -f "build/scripts/post.sh" ]; then
             echo "Patching build/scripts/post.sh codename check..."
-            sed -i 's/"$CODENAME" == "unified"/"$CODENAME" == "mitrinket" -o "$CODENAME" == "unified"/' build/scripts/post.sh
+            sed -i 's/"$CODENAME" == "unified"/"$CODENAME" == "mitrinket" || "$CODENAME" == "unified"/' build/scripts/post.sh
           fi
 
-          # Disable 0x0.st upload hang in CI (we upload directly to GitHub Artifacts / Releases)
+          # 3. Add set -e to ckbuild.sh so build errors fail fast with clear logs
           if [ -f "build/ckbuild.sh" ]; then
+            sed -i '1a set -e' build/ckbuild.sh
+            # Disable 0x0.st upload hang in CI (we upload directly to GitHub Artifacts / Releases)
             echo "Configuring LOG_UPLOAD=0 to avoid 0x0.st CI timeout..."
             sed -i 's/LOG_UPLOAD=1/LOG_UPLOAD=0/' build/ckbuild.sh
           fi
 
-          # Set custom localversion if provided
+          # 4. Set custom localversion if provided
           if [ -n "${{ inputs.custom_localversion }}" ] && [ -f "build/scripts/build.sh" ]; then
             echo "Configuring custom localversion: ${{ inputs.custom_localversion }}"
             sed -i 's/VERSION_STR="\\"-Floppy-\$FK_VER-\$CK_TYPE_SHORT\\""/VERSION_STR="\\"${{ inputs.custom_localversion }}\\""/' build/scripts/build.sh
