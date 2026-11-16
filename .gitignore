@@ -1,0 +1,8 @@
+# Artifacts & Output
+output/
+*.zip
+*.tar.gz
+*.txt
+.ccache/
+out/
+build/*.zip

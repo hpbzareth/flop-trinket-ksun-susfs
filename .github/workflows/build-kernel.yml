@@ -1,0 +1,250 @@
+name: Build Xiaomi Trinket Kernel with KernelSU-Next & SuSFS
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_device:
+        description: "Target Device (mitrinket: unified Note 8/8T & Mi A3, ginkgo: Note 8/8T, laurel_sprout: Mi A3, all: both)"
+        required: true
+        type: choice
+        options:
+          - "mitrinket"
+          - "ginkgo"
+          - "laurel_sprout"
+          - "all"
+        default: "mitrinket"
+      su_variant:
+        description: "SU / Root Variant (k: KernelSU-Next 3.4.2 + SuSFS 2.x, s: BakaSU, x: XXKSU, vanilla: Stock)"
+        required: true
+        type: choice
+        options:
+          - "k"
+          - "s"
+          - "x"
+          - "vanilla"
+        default: "k"
+      clang_type:
+        description: "Toolchain / Compiler (proton: Proton Clang 13 [recommended], aosp: AOSP Clang, zyc: ZyC Clang, rm69: RastaMod69)"
+        required: true
+        type: choice
+        options:
+          - "proton"
+          - "aosp"
+          - "zyc"
+          - "rm69"
+        default: "proton"
+      kernel_repo:
+        description: "Kernel Source Git Repository"
+        required: true
+        type: string
+        default: "https://github.com/FlopKernel-Series/flop_trinket-mi_kernel.git"
+      kernel_branch:
+        description: "Kernel Git Branch"
+        required: true
+        type: string
+        default: "floppy-unity"
+      custom_localversion:
+        description: "Custom localversion suffix (leave default or customize)"
+        required: false
+        type: string
+        default: "-Floppy-KSUN-SuSFS"
+      make_release:
+        description: "Publish GitHub Release on completion"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    name: Build Trinket ${{ inputs.target_device }} (${{ inputs.su_variant }})
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Free Runner Disk Space
+        run: |
+          echo "=== Freeing disk space ==="
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune -a -f || true
+          df -h
+
+      - name: Checkout Builder Repository
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential bc bison flex libssl-dev libelf-dev lz4 cpio kmod git curl \
+            zip unzip file dwarves python3 python-is-python3 tar wget jq rsync xz-utils perl \
+            ccache binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi libncurses5-dev
+          sudo apt-get install -y libtinfo5 || true
+
+      - name: Setup Swap Memory
+        run: |
+          sudo swapoff -a || true
+          sudo fallocate -l 16G /mnt/swapfile || sudo dd if=/dev/zero of=/mnt/swapfile bs=1M count=16384
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
+      - name: Clone Kernel Source
+        run: |
+          echo "=== Cloning ${{ inputs.kernel_repo }} branch ${{ inputs.kernel_branch }} ==="
+          git clone --depth=1 -b "${{ inputs.kernel_branch }}" "${{ inputs.kernel_repo }}" $GITHUB_WORKSPACE/kernel
+          cd $GITHUB_WORKSPACE/kernel
+          echo "Latest commit:"
+          git log -1 --oneline
+
+      - name: Prepare Build Environment & Compatibility Patches
+        run: |
+          cd $GITHUB_WORKSPACE
+          # Create dummy secret files to prevent ckbuild.sh telegram check from failing
+          touch bot_token chat chat_test
+
+          cd $GITHUB_WORKSPACE/kernel
+
+          # Patch post.sh to ensure mitrinket unified device codename check matches properly
+          if [ -f "build/scripts/post.sh" ]; then
+            echo "Patching build/scripts/post.sh codename check..."
+            sed -i 's/"$CODENAME" == "unified"/"$CODENAME" == "mitrinket" -o "$CODENAME" == "unified"/' build/scripts/post.sh
+          fi
+
+          # Disable 0x0.st upload hang in CI (we upload directly to GitHub Artifacts / Releases)
+          if [ -f "build/ckbuild.sh" ]; then
+            echo "Configuring LOG_UPLOAD=0 to avoid 0x0.st CI timeout..."
+            sed -i 's/LOG_UPLOAD=1/LOG_UPLOAD=0/' build/ckbuild.sh
+          fi
+
+          # Set custom localversion if provided
+          if [ -n "${{ inputs.custom_localversion }}" ] && [ -f "build/scripts/build.sh" ]; then
+            echo "Configuring custom localversion: ${{ inputs.custom_localversion }}"
+            sed -i 's/VERSION_STR="\\"-Floppy-\$FK_VER-\$CK_TYPE_SHORT\\""/VERSION_STR="\\"${{ inputs.custom_localversion }}\\""/' build/scripts/build.sh
+          fi
+
+      - name: Inspect KernelSU-Next & SuSFS Status
+        run: |
+          cd $GITHUB_WORKSPACE/kernel
+          echo "=== Checking KernelSU-Next and SuSFS configuration ==="
+          if [ -f "include/linux/susfs.h" ]; then
+            echo "SuSFS Header Info:"
+            grep -E "SUSFS_VERSION|SUSFS_VARIANT" include/linux/susfs.h || true
+          fi
+
+          if [ -f "drivers/kernelsu/uapi/supercall.h" ]; then
+            echo "KernelSU-Next UAPI Version:"
+            grep "KERNEL_SU_UAPI_VERSION" drivers/kernelsu/uapi/supercall.h || true
+          fi
+
+          if [ -f "arch/arm64/configs/ksu.config" ]; then
+            echo "arch/arm64/configs/ksu.config contents:"
+            cat arch/arm64/configs/ksu.config
+          fi
+
+      - name: Compile Kernel
+        id: compile
+        run: |
+          cd $GITHUB_WORKSPACE/kernel
+          export WP="$GITHUB_WORKSPACE"
+          export CLANG_TYPE="${{ inputs.clang_type }}"
+          export USE_CCACHE=1
+          export CCACHE_DIR="$GITHUB_WORKSPACE/.ccache"
+          mkdir -p "$CCACHE_DIR"
+
+          echo "=== Starting Kernel Compilation ==="
+          echo "Device Target : ${{ inputs.target_device }}"
+          echo "SU Variant    : ${{ inputs.su_variant }}"
+          echo "Clang Type    : $CLANG_TYPE"
+          echo "Workspace WP  : $WP"
+
+          START_TIME=$(date +%s)
+
+          if [ "${{ inputs.su_variant }}" = "vanilla" ]; then
+            bash do_build.sh "${{ inputs.target_device }}" c
+          else
+            bash do_build.sh "${{ inputs.target_device }}" "${{ inputs.su_variant }}c"
+          fi
+
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          echo "Compilation finished in $DURATION seconds."
+
+      - name: Package & Verify Output
+        id: package
+        run: |
+          cd $GITHUB_WORKSPACE
+          mkdir -p $GITHUB_WORKSPACE/output
+          echo "=== Locating built AnyKernel3 flashable zip ==="
+          find kernel/build/ -name "*.zip" -exec cp -v {} $GITHUB_WORKSPACE/output/ \;
+
+          ZIP_COUNT=$(ls -1 $GITHUB_WORKSPACE/output/*.zip 2>/dev/null | wc -l)
+          if [ "$ZIP_COUNT" -eq 0 ]; then
+            echo "::error::No flashable zip found in kernel/build/! Build may have failed."
+            exit 1
+          fi
+
+          cd $GITHUB_WORKSPACE/output
+          echo "=== Generated Packages ==="
+          ls -lh *.zip
+
+          echo "=== Calculating Checksums ==="
+          sha256sum *.zip | tee sha256.txt
+          md5sum *.zip | tee md5.txt
+
+          ZIP_NAME=$(basename $(ls -1 *.zip | head -n 1))
+          echo "primary_zip=$ZIP_NAME" >> $GITHUB_OUTPUT
+          BUILD_DATE=$(date "+%Y%m%d-%H%M")
+          echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
+
+          # Copy kernel image and dtbo for artifact archiving if present
+          if [ -f "$GITHUB_WORKSPACE/kernel/out/arch/arm64/boot/Image.gz-dtb" ]; then
+            cp -v "$GITHUB_WORKSPACE/kernel/out/arch/arm64/boot/Image.gz-dtb" "$GITHUB_WORKSPACE/output/"
+          fi
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Trinket-${{ inputs.target_device }}-${{ inputs.su_variant }}-${{ steps.package.outputs.build_date }}
+          path: |
+            ${{ github.workspace }}/output/*
+            ${{ github.workspace }}/kernel/out/.config
+
+      - name: Publish GitHub Release
+        if: inputs.make_release == true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: trinket-${{ inputs.target_device }}-${{ inputs.su_variant }}-${{ steps.package.outputs.build_date }}
+          name: "FloppyKernel Trinket [${{ inputs.target_device }}] - KernelSU-Next 3.4.2 & SuSFS 2.x (${{ steps.package.outputs.build_date }})"
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          body: |
+            ## FloppyKernel for Xiaomi Trinket (Redmi Note 8/8T & Mi A3)
+            
+            Automated build compiled via GitHub Actions.
+            
+            ### 📱 Build Details
+            - **Target Device:** `${{ inputs.target_device }}` (mitrinket: unified Redmi Note 8/8T `ginkgo`/`willow` & Mi A3 `laurel_sprout`)
+            - **SU Variant:** `${{ inputs.su_variant }}` (KernelSU-Next v3.4.2 with SuSFS 2.x)
+            - **Toolchain:** `${{ inputs.clang_type }}` (Proton Clang 13)
+            - **Kernel Version:** `Linux 4.14.357`
+            - **KernelSU-Next:** `v3.4.2` (UAPI v5/v6)
+            - **SuSFS:** `v2.2.0` (4.14 non-GKI stealth root hiding)
+            - **Hook Method:** `CONFIG_KSU_MANUAL_HOOK=y` (direct inline hooking)
+            - **Build Date:** `${{ steps.package.outputs.build_date }}`
+            
+            ### 📦 Checksums (SHA-256)
+            ```text
+            $(cat $GITHUB_WORKSPACE/output/sha256.txt)
+            ```
+            
+            ### ⚡ Flashing Instructions
+            1. Reboot device into TWRP / OrangeFox Custom Recovery.
+            2. Flash the AnyKernel3 `.zip` file.
+            3. Reboot system and enjoy stealth root with KernelSU-Next & SuSFS!
+          files: |
+            ${{ github.workspace }}/output/*.zip
+            ${{ github.workspace }}/output/sha256.txt
+            ${{ github.workspace }}/output/md5.txt
