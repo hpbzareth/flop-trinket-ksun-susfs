@@ -135,31 +135,19 @@ jobs:
 
           # 4. Inject FloppyKernel Revision 2 (R2) Enhancements
           echo "=== Injecting FloppyKernel Revision 2 (R2) Enhancements ==="
-          cat << 'EOF' >> arch/arm64/configs/vendor/xiaomi-trinket.config
-
-# ==========================================
-# FloppyKernel Revision 2 (R2) Optimizations
-# ==========================================
-
-# 1. Google BBR TCP Congestion Control (Faster network, lower ping)
-CONFIG_TCP_CONG_ADVANCED=y
-CONFIG_TCP_CONG_BBR=y
-CONFIG_DEFAULT_TCP_CONG="bbr"
-
-# 2. ZRAM ZSTD Compression (Max memory ratio & multitasking)
-CONFIG_CRYPTO_ZSTD=y
-CONFIG_ZSTD_COMPRESS=y
-CONFIG_ZSTD_DECOMPRESS=y
-CONFIG_ZRAM=y
-CONFIG_ZRAM_DEFAULT_COMP_ALGORITHM="zstd"
-
-# 3. Instant Deep Sleep (Skips redundant fs sync on screen-off)
-CONFIG_SUSPEND_SKIP_SYNC=y
-
-# 4. Hardware Calibration & Fast Charging
-CONFIG_DRM_MSM_KCAL_CTRL=y
-CONFIG_FORCE_FAST_CHARGE=y
-EOF
+          {
+            echo "CONFIG_TCP_CONG_ADVANCED=y"
+            echo "CONFIG_TCP_CONG_BBR=y"
+            echo 'CONFIG_DEFAULT_TCP_CONG="bbr"'
+            echo "CONFIG_CRYPTO_ZSTD=y"
+            echo "CONFIG_ZSTD_COMPRESS=y"
+            echo "CONFIG_ZSTD_DECOMPRESS=y"
+            echo "CONFIG_ZRAM=y"
+            echo 'CONFIG_ZRAM_DEFAULT_COMP_ALGORITHM="zstd"'
+            echo "CONFIG_SUSPEND_SKIP_SYNC=y"
+            echo "CONFIG_DRM_MSM_KCAL_CTRL=y"
+            echo "CONFIG_FORCE_FAST_CHARGE=y"
+          } >> arch/arm64/configs/vendor/xiaomi-trinket.config
 
           VARIANT="${{ matrix.variant }}"
           BUILD_OPTS="c"
