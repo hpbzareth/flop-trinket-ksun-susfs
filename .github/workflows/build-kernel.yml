@@ -18,16 +18,15 @@ on:
         required: true
         type: choice
         options:
-          - "all_variants"
-          - "ksun_uapi6_susfs"
-          - "ksun_uapi6_nosusfs"
+          - "sukisu_uapi6_susfs"
           - "ksun_uapi5_susfs"
-          - "ksun_uapi5_nosusfs"
-          - "sukisu_uapi5"
-          - "kowsu"
+          - "all_variants"
           - "official_ksu"
           - "vanilla"
-        default: "all_variants"
+          - "ksun_uapi6_nosusfs"
+          - "ksun_uapi5_nosusfs"
+          - "kowsu"
+        default: "sukisu_uapi6_susfs"
       clang_type:
         description: "Toolchain / Compiler (proton: Proton Clang 13 [recommended], aosp: AOSP Clang, zyc: ZyC Clang, rm69: RastaMod69)"
         required: true
@@ -42,7 +41,7 @@ on:
         description: "GitHub Release Tag to publish/update"
         required: false
         type: string
-        default: "Revision-1"
+        default: "Revision-2"
       make_release:
         description: "Publish/Attach to GitHub Release"
         required: false
@@ -59,7 +58,7 @@ jobs:
       - id: set-matrix
         run: |
           if [ "${{ inputs.su_variant }}" = "all_variants" ]; then
-            echo 'matrix=["ksun_uapi6_susfs", "ksun_uapi6_nosusfs", "ksun_uapi5_susfs", "ksun_uapi5_nosusfs", "sukisu_uapi5", "kowsu", "official_ksu", "vanilla"]' >> $GITHUB_OUTPUT
+            echo 'matrix=["sukisu_uapi6_susfs", "ksun_uapi5_susfs", "official_ksu", "vanilla", "ksun_uapi6_nosusfs", "ksun_uapi5_nosusfs", "kowsu"]' >> $GITHUB_OUTPUT
           else
             echo 'matrix=["${{ inputs.su_variant }}"]' >> $GITHUB_OUTPUT
           fi
@@ -134,43 +133,44 @@ jobs:
             sed -i 's/LOG_UPLOAD=1/LOG_UPLOAD=0/' build/ckbuild.sh
           fi
 
+          # 4. Inject FloppyKernel Revision 2 (R2) Enhancements
+          echo "=== Injecting FloppyKernel Revision 2 (R2) Enhancements ==="
+          cat << 'EOF' >> arch/arm64/configs/vendor/xiaomi-trinket.config
+
+# ==========================================
+# FloppyKernel Revision 2 (R2) Optimizations
+# ==========================================
+
+# 1. Google BBR TCP Congestion Control (Faster network, lower ping)
+CONFIG_TCP_CONG_ADVANCED=y
+CONFIG_TCP_CONG_BBR=y
+CONFIG_DEFAULT_TCP_CONG="bbr"
+
+# 2. ZRAM ZSTD Compression (Max memory ratio & multitasking)
+CONFIG_CRYPTO_ZSTD=y
+CONFIG_ZSTD_COMPRESS=y
+CONFIG_ZSTD_DECOMPRESS=y
+CONFIG_ZRAM=y
+CONFIG_ZRAM_DEFAULT_COMP_ALGORITHM="zstd"
+
+# 3. Instant Deep Sleep (Skips redundant fs sync on screen-off)
+CONFIG_SUSPEND_SKIP_SYNC=y
+
+# 4. Hardware Calibration & Fast Charging
+CONFIG_DRM_MSM_KCAL_CTRL=y
+CONFIG_FORCE_FAST_CHARGE=y
+EOF
+
           VARIANT="${{ matrix.variant }}"
           BUILD_OPTS="c"
           VARIANT_TAG=""
           LOCAL_VER=""
 
           case "$VARIANT" in
-            ksun_uapi6_susfs)
-              BUILD_OPTS="kc"
-              VARIANT_TAG="KSUNext-uapi6-SUSFS"
-              LOCAL_VER="-Floppy-KSUN-uapi6-susfs"
-              ;;
-            ksun_uapi6_nosusfs)
-              BUILD_OPTS="kc"
-              VARIANT_TAG="KSUNext-uapi6-NoSUSFS"
-              LOCAL_VER="-Floppy-KSUN-uapi6-nosusfs"
-              # Disable SuSFS in ksu.config
-              sed -i 's/^CONFIG_KSU_SUSFS/# CONFIG_KSU_SUSFS/g' arch/arm64/configs/ksu.config
-              ;;
-            ksun_uapi5_susfs)
-              BUILD_OPTS="kc"
-              VARIANT_TAG="KSUNext-uapi5-SUSFS"
-              LOCAL_VER="-Floppy-KSUN-uapi5-susfs"
-              # Set UAPI version to 5 in supercall.h
-              sed -i 's/#define KERNEL_SU_UAPI_VERSION 6/#define KERNEL_SU_UAPI_VERSION 5/' drivers/kernelsu/uapi/supercall.h
-              ;;
-            ksun_uapi5_nosusfs)
-              BUILD_OPTS="kc"
-              VARIANT_TAG="KSUNext-uapi5-NoSUSFS"
-              LOCAL_VER="-Floppy-KSUN-uapi5-nosusfs"
-              # Set UAPI version to 5 and disable SuSFS
-              sed -i 's/#define KERNEL_SU_UAPI_VERSION 6/#define KERNEL_SU_UAPI_VERSION 5/' drivers/kernelsu/uapi/supercall.h
-              sed -i 's/^CONFIG_KSU_SUSFS/# CONFIG_KSU_SUSFS/g' arch/arm64/configs/ksu.config
-              ;;
-            sukisu_uapi5)
+            sukisu_uapi6_susfs|sukisu_uapi5)
               BUILD_OPTS="sc"
               VARIANT_TAG="SukiSU-uapi6-SUSFS"
-              LOCAL_VER="-Floppy-SukiSU-uapi6-susfs"
+              LOCAL_VER="-Floppy-R2-SukiSU-uapi6-susfs"
               # Enable multi-manager support in sukisu.config
               sed -i 's/# CONFIG_KSU_MULTI_MANAGER_SUPPORT is not set/CONFIG_KSU_MULTI_MANAGER_SUPPORT=y/' arch/arm64/configs/sukisu.config
               # Patch EXPECTED_HASH_BAKASU to match SukiSU Nova v3.0.0 key (size 0x35c, hash 947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef)
@@ -179,15 +179,42 @@ jobs:
               # Bump SukiSU UAPI version from 5 to 6 to match SukiSU Nova v3.0.0 (30000-6)
               sed -i 's/KERNEL_SU_UAPI_VERSION = 5/KERNEL_SU_UAPI_VERSION = 6/' drivers/sukisu/uapi/supercall.h
               ;;
+            ksun_uapi5_susfs)
+              BUILD_OPTS="kc"
+              VARIANT_TAG="KSUNext-uapi5-SUSFS"
+              LOCAL_VER="-Floppy-R2-KSUN-uapi5-susfs"
+              # Set UAPI version to 5 in supercall.h
+              sed -i 's/#define KERNEL_SU_UAPI_VERSION 6/#define KERNEL_SU_UAPI_VERSION 5/' drivers/kernelsu/uapi/supercall.h
+              ;;
+            ksun_uapi6_susfs)
+              BUILD_OPTS="kc"
+              VARIANT_TAG="KSUNext-uapi6-SUSFS"
+              LOCAL_VER="-Floppy-R2-KSUN-uapi6-susfs"
+              ;;
+            ksun_uapi6_nosusfs)
+              BUILD_OPTS="kc"
+              VARIANT_TAG="KSUNext-uapi6-NoSUSFS"
+              LOCAL_VER="-Floppy-R2-KSUN-uapi6-nosusfs"
+              # Disable SuSFS in ksu.config
+              sed -i 's/^CONFIG_KSU_SUSFS/# CONFIG_KSU_SUSFS/g' arch/arm64/configs/ksu.config
+              ;;
+            ksun_uapi5_nosusfs)
+              BUILD_OPTS="kc"
+              VARIANT_TAG="KSUNext-uapi5-NoSUSFS"
+              LOCAL_VER="-Floppy-R2-KSUN-uapi5-nosusfs"
+              # Set UAPI version to 5 and disable SuSFS
+              sed -i 's/#define KERNEL_SU_UAPI_VERSION 6/#define KERNEL_SU_UAPI_VERSION 5/' drivers/kernelsu/uapi/supercall.h
+              sed -i 's/^CONFIG_KSU_SUSFS/# CONFIG_KSU_SUSFS/g' arch/arm64/configs/ksu.config
+              ;;
             kowsu)
               BUILD_OPTS="xc"
               VARIANT_TAG="KowSU-XXKSU"
-              LOCAL_VER="-Floppy-KowSU-XXKSU"
+              LOCAL_VER="-Floppy-R2-KowSU-XXKSU"
               ;;
             official_ksu)
               BUILD_OPTS="kc"
               VARIANT_TAG="Official-KernelSU-v0.9.5"
-              LOCAL_VER="-Floppy-Official-KSU-v0.9.5"
+              LOCAL_VER="-Floppy-R2-Official-KSU-v0.9.5"
               # Replace drivers/kernelsu with official tiann/KernelSU v0.9.5
               rm -rf drivers/kernelsu
               git clone --depth=1 -b v0.9.5 https://github.com/tiann/KernelSU.git drivers/kernelsu
@@ -205,7 +232,7 @@ jobs:
             vanilla)
               BUILD_OPTS="c"
               VARIANT_TAG="Vanilla-APatch-Folkpatch"
-              LOCAL_VER="-Floppy-Vanilla-APatch-Folkpatch"
+              LOCAL_VER="-Floppy-R2-Vanilla-APatch-Folkpatch"
               ;;
             *)
               echo "Unknown variant: $VARIANT"
@@ -258,7 +285,7 @@ jobs:
             exit 1
           fi
 
-          FINAL_ZIP_NAME="Floppy_v2.0b-${VARIANT_TAG}-${TARGET_DEV}-${BUILD_DATE}.zip"
+          FINAL_ZIP_NAME="Floppy_v2.0-R2-${VARIANT_TAG}-${TARGET_DEV}-${BUILD_DATE}.zip"
           cp -v "$RAW_ZIP" "$GITHUB_WORKSPACE/output/$FINAL_ZIP_NAME"
 
           cd $GITHUB_WORKSPACE/output
