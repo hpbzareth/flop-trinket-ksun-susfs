@@ -312,40 +312,35 @@ jobs:
           TMP_AK3_DIR=$(mktemp -d)
           unzip -q "$RAW_ZIP" -d "$TMP_AK3_DIR"
           cat << 'EOF' > "$TMP_AK3_DIR/00-floppy-perf.sh"
-#!/system/bin/sh
-# FloppyKernel R3 Auto-Perf & GPU Turbo Boot Service
+            #!/system/bin/sh
+            # FloppyKernel R3 Auto-Perf & GPU Turbo Boot Service
 
-# 1. GPU Adreno 610 Max Power & Turbo 950MHz
-echo 0 > /sys/class/kgsl/kgsl-3d0/max_pwrlevel 2>/dev/null
-echo 3 > /sys/class/kgsl/kgsl-3d0/min_pwrlevel 2>/dev/null
-echo 0 > /sys/class/kgsl/kgsl-3d0/throttling 2>/dev/null
+            # 1. GPU Adreno 610 Max Power & Turbo 950MHz
+            echo 0 > /sys/class/kgsl/kgsl-3d0/max_pwrlevel 2>/dev/null
+            echo 3 > /sys/class/kgsl/kgsl-3d0/min_pwrlevel 2>/dev/null
+            echo 0 > /sys/class/kgsl/kgsl-3d0/throttling 2>/dev/null
 
-# 2. CPU Auto-Perf Schedutil Ramp-Up & WALT
-for pol in /sys/devices/system/cpu/cpufreq/policy*; do
-  echo 500 > $pol/schedutil/up_rate_limit_us 2>/dev/null
-  echo 20000 > $pol/schedutil/down_rate_limit_us 2>/dev/null
-done
+            # 2. CPU Auto-Perf Schedutil Ramp-Up & WALT
+            for pol in /sys/devices/system/cpu/cpufreq/policy*; do
+              echo 500 > $pol/schedutil/up_rate_limit_us 2>/dev/null
+              echo 20000 > $pol/schedutil/down_rate_limit_us 2>/dev/null
+            done
 
-# 3. I/O Scheduler & eMMC 5.1 Storage Priority (BFQ + 128KB Read-ahead)
-for blk in /sys/block/mmcblk*; do
-  echo bfq > $blk/queue/scheduler 2>/dev/null
-  echo 128 > $blk/queue/read_ahead_kb 2>/dev/null
-done
+            # 3. I/O Scheduler & eMMC 5.1 Storage Priority (BFQ + 128KB Read-ahead)
+            for blk in /sys/block/mmcblk*; do
+              echo bfq > $blk/queue/scheduler 2>/dev/null
+              echo 128 > $blk/queue/read_ahead_kb 2>/dev/null
+            done
 
-# 4. Storage & VM Memory Tuning
-echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
-echo 20 > /proc/sys/vm/dirty_ratio 2>/dev/null
-echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
-EOF
+            # 4. Storage & VM Memory Tuning
+            echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+            echo 20 > /proc/sys/vm/dirty_ratio 2>/dev/null
+            echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+          EOF
           chmod 755 "$TMP_AK3_DIR/00-floppy-perf.sh"
 
           if [ -f "$TMP_AK3_DIR/anykernel.sh" ]; then
-            sed -i '/write_boot;/a \
-if [ -d /data/adb/service.d ]; then\
-  ui_print "  • Installing Floppy R3 Auto-Perf post-boot service...";\
-  cp -f $home/00-floppy-perf.sh /data/adb/service.d/00-floppy-perf.sh;\
-  chmod 755 /data/adb/service.d/00-floppy-perf.sh;\
-fi;' "$TMP_AK3_DIR/anykernel.sh"
+            sed -i '/write_boot;/a if [ -d /data/adb/service.d ]; then ui_print "  • Installing Floppy R3 Auto-Perf..."; cp -f $home/00-floppy-perf.sh /data/adb/service.d/00-floppy-perf.sh; chmod 755 /data/adb/service.d/00-floppy-perf.sh; fi' "$TMP_AK3_DIR/anykernel.sh"
           fi
 
           cd "$TMP_AK3_DIR"
