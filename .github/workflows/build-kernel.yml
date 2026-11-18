@@ -41,7 +41,7 @@ on:
         description: "GitHub Release Tag to publish/update"
         required: false
         type: string
-        default: "Revision-2"
+        default: "Revision-3"
       make_release:
         description: "Publish/Attach to GitHub Release"
         required: false
@@ -133,20 +133,53 @@ jobs:
             sed -i 's/LOG_UPLOAD=1/LOG_UPLOAD=0/' build/ckbuild.sh
           fi
 
-          # 4. Inject FloppyKernel Revision 2 (R2) Enhancements
-          echo "=== Injecting FloppyKernel Revision 2 (R2) Enhancements ==="
+          # 4. Inject FloppyKernel Revision 3 (R3) Ultra Optimizations
+          echo "=== Injecting FloppyKernel Revision 3 (R3) Ultra Optimizations ==="
+          
+          # A. Network & BBR with FQ hardware pacing
           {
             echo "CONFIG_TCP_CONG_ADVANCED=y"
             echo "CONFIG_TCP_CONG_BBR=y"
             echo 'CONFIG_DEFAULT_TCP_CONG="bbr"'
+            echo "CONFIG_NET_SCH_FQ=y"
+            echo 'CONFIG_DEFAULT_NET_SCH="fq"'
+            echo "CONFIG_DEFAULT_FQ=y"
+          } >> arch/arm64/configs/vendor/xiaomi-trinket.config
+
+          # B. ZRAM ZSTD Ultra Compression (Disable Dedup CPU hashing)
+          {
             echo "CONFIG_CRYPTO_ZSTD=y"
             echo "CONFIG_ZSTD_COMPRESS=y"
             echo "CONFIG_ZSTD_DECOMPRESS=y"
             echo "CONFIG_ZRAM=y"
             echo 'CONFIG_ZRAM_DEFAULT_COMP_ALGORITHM="zstd"'
+          } >> arch/arm64/configs/vendor/xiaomi-trinket.config
+          sed -i 's/CONFIG_ZRAM_DEDUP=y/# CONFIG_ZRAM_DEDUP is not set/' arch/arm64/configs/vendor/trinket-perf_defconfig
+
+          # C. Display & Fast Charging
+          {
             echo "CONFIG_SUSPEND_SKIP_SYNC=y"
             echo "CONFIG_DRM_MSM_KCAL_CTRL=y"
             echo "CONFIG_FORCE_FAST_CHARGE=y"
+          } >> arch/arm64/configs/vendor/xiaomi-trinket.config
+
+          # D. Frame-Perfect 300Hz Timer Frequency (Divides evenly into 60 FPS: 5 ticks/frame)
+          sed -i 's/CONFIG_HZ_250=y/CONFIG_HZ_300=y/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/CONFIG_HZ=250/CONFIG_HZ=300/' arch/arm64/configs/vendor/trinket-perf_defconfig
+
+          # E. Multi-Queue I/O Scheduler: BFQ for eMMC 5.1 Storage (Foreground UI priority)
+          sed -i 's/# CONFIG_IOSCHED_BFQ is not set/CONFIG_IOSCHED_BFQ=y\nCONFIG_BFQ_GROUP_IOSCHED=y/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/CONFIG_DEFAULT_MQ_IOSCHED="kyber"/CONFIG_DEFAULT_MQ_IOSCHED="bfq"/' arch/arm64/configs/vendor/trinket-perf_defconfig
+
+          # F. Touchscreen Latency Stripping (Disable debug logging on touch interrupts)
+          sed -i 's/CONFIG_TOUCHSCREEN_HIMAX_DEBUG=y/# CONFIG_TOUCHSCREEN_HIMAX_DEBUG is not set/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/CONFIG_TOUCHSCREEN_SYNAPTICS_TCM_TESTING=y/# CONFIG_TOUCHSCREEN_SYNAPTICS_TCM_TESTING is not set/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/CONFIG_TOUCHSCREEN_SYNAPTICS_TCM_DIAGNOSTICS=y/# CONFIG_TOUCHSCREEN_SYNAPTICS_TCM_DIAGNOSTICS is not set/' arch/arm64/configs/vendor/trinket-perf_defconfig
+
+          # G. GPU Turbo & Devfreq
+          {
+            echo "CONFIG_DEVFREQ_GOV_QCOM_ADRENO_TZ=y"
+            echo "CONFIG_DEVFREQ_GOV_PERFORMANCE=y"
           } >> arch/arm64/configs/vendor/xiaomi-trinket.config
 
           VARIANT="${{ matrix.variant }}"
@@ -158,7 +191,7 @@ jobs:
             sukisu_uapi6_susfs|sukisu_uapi5)
               BUILD_OPTS="sc"
               VARIANT_TAG="SukiSU-uapi6-SUSFS"
-              LOCAL_VER="-Floppy-R2-SukiSU-uapi6-susfs"
+              LOCAL_VER="-Floppy-R3-SukiSU-uapi6-susfs"
               # Enable multi-manager support in sukisu.config
               sed -i 's/# CONFIG_KSU_MULTI_MANAGER_SUPPORT is not set/CONFIG_KSU_MULTI_MANAGER_SUPPORT=y/' arch/arm64/configs/sukisu.config
               # Patch EXPECTED_HASH_BAKASU to match SukiSU Nova v3.0.0 key (size 0x35c, hash 947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef)
@@ -170,26 +203,26 @@ jobs:
             ksun_uapi5_susfs)
               BUILD_OPTS="kc"
               VARIANT_TAG="KSUNext-uapi5-SUSFS"
-              LOCAL_VER="-Floppy-R2-KSUN-uapi5-susfs"
+              LOCAL_VER="-Floppy-R3-KSUN-uapi5-susfs"
               # Set UAPI version to 5 in supercall.h
               sed -i 's/#define KERNEL_SU_UAPI_VERSION 6/#define KERNEL_SU_UAPI_VERSION 5/' drivers/kernelsu/uapi/supercall.h
               ;;
             ksun_uapi6_susfs)
               BUILD_OPTS="kc"
               VARIANT_TAG="KSUNext-uapi6-SUSFS"
-              LOCAL_VER="-Floppy-R2-KSUN-uapi6-susfs"
+              LOCAL_VER="-Floppy-R3-KSUN-uapi6-susfs"
               ;;
             ksun_uapi6_nosusfs)
               BUILD_OPTS="kc"
               VARIANT_TAG="KSUNext-uapi6-NoSUSFS"
-              LOCAL_VER="-Floppy-R2-KSUN-uapi6-nosusfs"
+              LOCAL_VER="-Floppy-R3-KSUN-uapi6-nosusfs"
               # Disable SuSFS in ksu.config
               sed -i 's/^CONFIG_KSU_SUSFS/# CONFIG_KSU_SUSFS/g' arch/arm64/configs/ksu.config
               ;;
             ksun_uapi5_nosusfs)
               BUILD_OPTS="kc"
               VARIANT_TAG="KSUNext-uapi5-NoSUSFS"
-              LOCAL_VER="-Floppy-R2-KSUN-uapi5-nosusfs"
+              LOCAL_VER="-Floppy-R3-KSUN-uapi5-nosusfs"
               # Set UAPI version to 5 and disable SuSFS
               sed -i 's/#define KERNEL_SU_UAPI_VERSION 6/#define KERNEL_SU_UAPI_VERSION 5/' drivers/kernelsu/uapi/supercall.h
               sed -i 's/^CONFIG_KSU_SUSFS/# CONFIG_KSU_SUSFS/g' arch/arm64/configs/ksu.config
@@ -197,12 +230,12 @@ jobs:
             kowsu)
               BUILD_OPTS="xc"
               VARIANT_TAG="KowSU-XXKSU"
-              LOCAL_VER="-Floppy-R2-KowSU-XXKSU"
+              LOCAL_VER="-Floppy-R3-KowSU-XXKSU"
               ;;
             official_ksu)
               BUILD_OPTS="kc"
               VARIANT_TAG="Official-KernelSU-v0.9.5"
-              LOCAL_VER="-Floppy-R2-Official-KSU-v0.9.5"
+              LOCAL_VER="-Floppy-R3-Official-KSU-v0.9.5"
               # Replace drivers/kernelsu with official tiann/KernelSU v0.9.5
               rm -rf drivers/kernelsu
               git clone --depth=1 -b v0.9.5 https://github.com/tiann/KernelSU.git drivers/kernelsu
@@ -220,7 +253,7 @@ jobs:
             vanilla)
               BUILD_OPTS="c"
               VARIANT_TAG="Vanilla-APatch-Folkpatch"
-              LOCAL_VER="-Floppy-R2-Vanilla-APatch-Folkpatch"
+              LOCAL_VER="-Floppy-R3-Vanilla-APatch-Folkpatch"
               ;;
             *)
               echo "Unknown variant: $VARIANT"
@@ -273,8 +306,52 @@ jobs:
             exit 1
           fi
 
-          FINAL_ZIP_NAME="Floppy_v2.0-R2-${VARIANT_TAG}-${TARGET_DEV}-${BUILD_DATE}.zip"
-          cp -v "$RAW_ZIP" "$GITHUB_WORKSPACE/output/$FINAL_ZIP_NAME"
+          FINAL_ZIP_NAME="Floppy_v2.0-R3-${VARIANT_TAG}-${TARGET_DEV}-${BUILD_DATE}.zip"
+
+          echo "=== Injecting 00-floppy-perf.sh post-boot script into AnyKernel3 ==="
+          TMP_AK3_DIR=$(mktemp -d)
+          unzip -q "$RAW_ZIP" -d "$TMP_AK3_DIR"
+          cat << 'EOF' > "$TMP_AK3_DIR/00-floppy-perf.sh"
+#!/system/bin/sh
+# FloppyKernel R3 Auto-Perf & GPU Turbo Boot Service
+
+# 1. GPU Adreno 610 Max Power & Turbo 950MHz
+echo 0 > /sys/class/kgsl/kgsl-3d0/max_pwrlevel 2>/dev/null
+echo 3 > /sys/class/kgsl/kgsl-3d0/min_pwrlevel 2>/dev/null
+echo 0 > /sys/class/kgsl/kgsl-3d0/throttling 2>/dev/null
+
+# 2. CPU Auto-Perf Schedutil Ramp-Up & WALT
+for pol in /sys/devices/system/cpu/cpufreq/policy*; do
+  echo 500 > $pol/schedutil/up_rate_limit_us 2>/dev/null
+  echo 20000 > $pol/schedutil/down_rate_limit_us 2>/dev/null
+done
+
+# 3. I/O Scheduler & eMMC 5.1 Storage Priority (BFQ + 128KB Read-ahead)
+for blk in /sys/block/mmcblk*; do
+  echo bfq > $blk/queue/scheduler 2>/dev/null
+  echo 128 > $blk/queue/read_ahead_kb 2>/dev/null
+done
+
+# 4. Storage & VM Memory Tuning
+echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
+echo 20 > /proc/sys/vm/dirty_ratio 2>/dev/null
+echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+EOF
+          chmod 755 "$TMP_AK3_DIR/00-floppy-perf.sh"
+
+          if [ -f "$TMP_AK3_DIR/anykernel.sh" ]; then
+            sed -i '/write_boot;/a \
+if [ -d /data/adb/service.d ]; then\
+  ui_print "  • Installing Floppy R3 Auto-Perf post-boot service...";\
+  cp -f $home/00-floppy-perf.sh /data/adb/service.d/00-floppy-perf.sh;\
+  chmod 755 /data/adb/service.d/00-floppy-perf.sh;\
+fi;' "$TMP_AK3_DIR/anykernel.sh"
+          fi
+
+          cd "$TMP_AK3_DIR"
+          zip -r -q "$GITHUB_WORKSPACE/output/$FINAL_ZIP_NAME" .
+          cd "$GITHUB_WORKSPACE"
+          rm -rf "$TMP_AK3_DIR"
 
           cd $GITHUB_WORKSPACE/output
           echo "final_zip=$FINAL_ZIP_NAME" >> $GITHUB_OUTPUT
