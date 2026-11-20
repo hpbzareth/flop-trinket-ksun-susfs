@@ -41,7 +41,7 @@ on:
         description: "GitHub Release Tag to publish/update"
         required: false
         type: string
-        default: "Revision-3"
+        default: "Revision-4"
       make_release:
         description: "Publish/Attach to GitHub Release"
         required: false
@@ -133,8 +133,8 @@ jobs:
             sed -i 's/LOG_UPLOAD=1/LOG_UPLOAD=0/' build/ckbuild.sh
           fi
 
-          # 4. Inject FloppyKernel Revision 3 (R3) Ultra Optimizations
-          echo "=== Injecting FloppyKernel Revision 3 (R3) Ultra Optimizations ==="
+          # 4. Inject FloppyKernel-Zareth (Revision 4) Ultra Optimizations
+          echo "=== Injecting FloppyKernel-Zareth (Revision 4) Ultra Optimizations ==="
           
           # A. Network & BBR with FQ hardware pacing
           {
@@ -146,21 +146,23 @@ jobs:
             echo "CONFIG_DEFAULT_FQ=y"
           } >> arch/arm64/configs/vendor/xiaomi-trinket.config
 
-          # B. ZRAM ZSTD Ultra Compression (Disable Dedup CPU hashing)
+          # B. ZRAM LZO-RLE Ultra-Fast Low-Latency Compression
           {
-            echo "CONFIG_CRYPTO_ZSTD=y"
-            echo "CONFIG_ZSTD_COMPRESS=y"
-            echo "CONFIG_ZSTD_DECOMPRESS=y"
+            echo "CONFIG_CRYPTO_LZO=y"
+            echo "CONFIG_LZO_COMPRESS=y"
+            echo "CONFIG_LZO_DECOMPRESS=y"
             echo "CONFIG_ZRAM=y"
-            echo 'CONFIG_ZRAM_DEFAULT_COMP_ALGORITHM="zstd"'
+            echo 'CONFIG_ZRAM_DEFAULT_COMP_ALGORITHM="lzo-rle"'
           } >> arch/arm64/configs/vendor/xiaomi-trinket.config
+          sed -i 's/CONFIG_ZRAM_DEFAULT_COMP_ALGORITHM=.*/CONFIG_ZRAM_DEFAULT_COMP_ALGORITHM="lzo-rle"/' arch/arm64/configs/vendor/trinket-perf_defconfig
           sed -i 's/CONFIG_ZRAM_DEDUP=y/# CONFIG_ZRAM_DEDUP is not set/' arch/arm64/configs/vendor/trinket-perf_defconfig
 
-          # C. Display & Fast Charging
+          # C. Display, Fast Charging & Power Efficiency
           {
             echo "CONFIG_SUSPEND_SKIP_SYNC=y"
             echo "CONFIG_DRM_MSM_KCAL_CTRL=y"
             echo "CONFIG_FORCE_FAST_CHARGE=y"
+            echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y"
           } >> arch/arm64/configs/vendor/xiaomi-trinket.config
 
           # D. Frame-Perfect 300Hz Timer Frequency (Divides evenly into 60 FPS: 5 ticks/frame)
@@ -182,6 +184,10 @@ jobs:
             echo "CONFIG_DEVFREQ_GOV_PERFORMANCE=y"
           } >> arch/arm64/configs/vendor/xiaomi-trinket.config
 
+          # H. Kernel Branding & Clean Localversion (FloppyKernel-Zareth)
+          sed -i 's/CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION="-FloppyKernel-Zareth"/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/CONFIG_LOCALVERSION_AUTO=y/# CONFIG_LOCALVERSION_AUTO is not set/' arch/arm64/configs/vendor/trinket-perf_defconfig
+
           VARIANT="${{ matrix.variant }}"
           BUILD_OPTS="c"
           VARIANT_TAG=""
@@ -191,7 +197,7 @@ jobs:
             sukisu_uapi6_susfs|sukisu_uapi5)
               BUILD_OPTS="sc"
               VARIANT_TAG="SukiSU-uapi6-SUSFS"
-              LOCAL_VER="-Floppy-R3-SukiSU-uapi6-susfs"
+              LOCAL_VER="-FloppyKernel-Zareth"
               # Enable multi-manager support in sukisu.config
               sed -i 's/# CONFIG_KSU_MULTI_MANAGER_SUPPORT is not set/CONFIG_KSU_MULTI_MANAGER_SUPPORT=y/' arch/arm64/configs/sukisu.config
               # Patch EXPECTED_HASH_BAKASU to match SukiSU Nova v3.0.0 key (size 0x35c, hash 947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef)
@@ -203,26 +209,26 @@ jobs:
             ksun_uapi5_susfs)
               BUILD_OPTS="kc"
               VARIANT_TAG="KSUNext-uapi5-SUSFS"
-              LOCAL_VER="-Floppy-R3-KSUN-uapi5-susfs"
+              LOCAL_VER="-FloppyKernel-Zareth-KSUN"
               # Set UAPI version to 5 in supercall.h
               sed -i 's/#define KERNEL_SU_UAPI_VERSION 6/#define KERNEL_SU_UAPI_VERSION 5/' drivers/kernelsu/uapi/supercall.h
               ;;
             ksun_uapi6_susfs)
               BUILD_OPTS="kc"
               VARIANT_TAG="KSUNext-uapi6-SUSFS"
-              LOCAL_VER="-Floppy-R3-KSUN-uapi6-susfs"
+              LOCAL_VER="-FloppyKernel-Zareth-KSUN"
               ;;
             ksun_uapi6_nosusfs)
               BUILD_OPTS="kc"
               VARIANT_TAG="KSUNext-uapi6-NoSUSFS"
-              LOCAL_VER="-Floppy-R3-KSUN-uapi6-nosusfs"
+              LOCAL_VER="-FloppyKernel-Zareth-KSUN"
               # Disable SuSFS in ksu.config
               sed -i 's/^CONFIG_KSU_SUSFS/# CONFIG_KSU_SUSFS/g' arch/arm64/configs/ksu.config
               ;;
             ksun_uapi5_nosusfs)
               BUILD_OPTS="kc"
               VARIANT_TAG="KSUNext-uapi5-NoSUSFS"
-              LOCAL_VER="-Floppy-R3-KSUN-uapi5-nosusfs"
+              LOCAL_VER="-FloppyKernel-Zareth-KSUN"
               # Set UAPI version to 5 and disable SuSFS
               sed -i 's/#define KERNEL_SU_UAPI_VERSION 6/#define KERNEL_SU_UAPI_VERSION 5/' drivers/kernelsu/uapi/supercall.h
               sed -i 's/^CONFIG_KSU_SUSFS/# CONFIG_KSU_SUSFS/g' arch/arm64/configs/ksu.config
@@ -230,12 +236,12 @@ jobs:
             kowsu)
               BUILD_OPTS="xc"
               VARIANT_TAG="KowSU-XXKSU"
-              LOCAL_VER="-Floppy-R3-KowSU-XXKSU"
+              LOCAL_VER="-FloppyKernel-Zareth-KowSU"
               ;;
             official_ksu)
               BUILD_OPTS="kc"
               VARIANT_TAG="Official-KernelSU-v0.9.5"
-              LOCAL_VER="-Floppy-R3-Official-KSU-v0.9.5"
+              LOCAL_VER="-FloppyKernel-Zareth-OfficialKSU"
               # Replace drivers/kernelsu with official tiann/KernelSU v0.9.5
               rm -rf drivers/kernelsu
               git clone --depth=1 -b v0.9.5 https://github.com/tiann/KernelSU.git drivers/kernelsu
@@ -253,7 +259,7 @@ jobs:
             vanilla)
               BUILD_OPTS="c"
               VARIANT_TAG="Vanilla-APatch-Folkpatch"
-              LOCAL_VER="-Floppy-R3-Vanilla-APatch-Folkpatch"
+              LOCAL_VER="-FloppyKernel-Zareth-Vanilla"
               ;;
             *)
               echo "Unknown variant: $VARIANT"
@@ -268,7 +274,8 @@ jobs:
 
           # Patch localversion in build.sh
           if [ -f "build/scripts/build.sh" ]; then
-            sed -i "s/VERSION_STR=\"\\\\\"-Floppy-\\\$FK_VER-\\\$CK_TYPE_SHORT\\\\\"\"/VERSION_STR=\"\\\\\"$LOCAL_VER\\\\\"\"/" build/scripts/build.sh
+            sed -i "s/VERSION_STR=\"\\\\\"-Floppy-\\\$FK_VER-\\\$CK_TYPE_SHORT\\\\\"\"/VERSION_STR=\"\\\\\"$LOCAL_VER\\\\\"\"\n            VERSION_NOAUTO=1/" build/scripts/build.sh
+            sed -i "s/VERSION_STR=\"\\\\\"-Floppy-\\\$FK_VER-\\\$CK_TYPE_SHORT-release\\\\\"\"/VERSION_STR=\"\\\\\"$LOCAL_VER\\\\\"\"\n            VERSION_NOAUTO=1/" build/scripts/build.sh
           fi
 
       - name: Compile Kernel
@@ -306,41 +313,61 @@ jobs:
             exit 1
           fi
 
-          FINAL_ZIP_NAME="Floppy_v2.0-R3-${VARIANT_TAG}-${TARGET_DEV}-${BUILD_DATE}.zip"
+          FINAL_ZIP_NAME="FloppyKernel-Zareth-${VARIANT_TAG}-${TARGET_DEV}-${BUILD_DATE}.zip"
 
           echo "=== Injecting 00-floppy-perf.sh post-boot script into AnyKernel3 ==="
           TMP_AK3_DIR=$(mktemp -d)
           unzip -q "$RAW_ZIP" -d "$TMP_AK3_DIR"
           cat << 'EOF' > "$TMP_AK3_DIR/00-floppy-perf.sh"
             #!/system/bin/sh
-            # FloppyKernel R3 Auto-Perf & GPU Turbo Boot Service
+            # FloppyKernel-Zareth Auto-Perf & System Tuning Service
 
-            # 1. GPU Adreno 610 Max Power & Turbo 950MHz
+            # 1. ZRAM LZO-RLE Runtime Enforcement & Memory Tuning
+            if [ -e /sys/block/zram0/comp_algorithm ]; then
+              echo "lzo-rle" > /sys/block/zram0/comp_algorithm 2>/dev/null
+            fi
+            echo 0 > /proc/sys/vm/page-cluster 2>/dev/null
+            echo 100 > /proc/sys/vm/swappiness 2>/dev/null
+
+            # 2. GPU Adreno 610 Max Power & Turbo 950MHz
             echo 0 > /sys/class/kgsl/kgsl-3d0/max_pwrlevel 2>/dev/null
             echo 3 > /sys/class/kgsl/kgsl-3d0/min_pwrlevel 2>/dev/null
             echo 0 > /sys/class/kgsl/kgsl-3d0/throttling 2>/dev/null
 
-            # 2. CPU Auto-Perf Schedutil Ramp-Up & WALT
+            # 3. CPU Auto-Perf Schedutil Ramp-Up & WALT
             for pol in /sys/devices/system/cpu/cpufreq/policy*; do
               echo 500 > $pol/schedutil/up_rate_limit_us 2>/dev/null
               echo 20000 > $pol/schedutil/down_rate_limit_us 2>/dev/null
+              echo 1000 > $pol/schedutil/rate_limit_us 2>/dev/null
             done
 
-            # 3. I/O Scheduler & eMMC 5.1 Storage Priority (BFQ + 128KB Read-ahead)
+            # 4. Storage & eMMC 5.1 Optimization (BFQ + 128KB Read-ahead)
             for blk in /sys/block/mmcblk*; do
               echo bfq > $blk/queue/scheduler 2>/dev/null
               echo 128 > $blk/queue/read_ahead_kb 2>/dev/null
+              echo 0 > $blk/queue/add_random 2>/dev/null
+              echo 0 > $blk/queue/iostats 2>/dev/null
+              echo 0 > $blk/queue/rotational 2>/dev/null
             done
 
-            # 4. Storage & VM Memory Tuning
+            # 5. Storage & VM Memory Tuning
             echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
-            echo 20 > /proc/sys/vm/dirty_ratio 2>/dev/null
+            echo 15 > /proc/sys/vm/dirty_ratio 2>/dev/null
             echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
+            echo 10 > /proc/sys/vm/stat_interval 2>/dev/null
+
+            # 6. TCP & Network Acceleration (BBR, TCP Fast Open)
+            echo 3 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null
+            echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
+
+            # 7. Power Efficiency for Sleep / Idle
+            echo Y > /sys/module/workqueue/parameters/power_efficient 2>/dev/null
           EOF
           chmod 755 "$TMP_AK3_DIR/00-floppy-perf.sh"
 
           if [ -f "$TMP_AK3_DIR/anykernel.sh" ]; then
-            sed -i '/write_boot;/a if [ -d /data/adb/service.d ]; then ui_print "  • Installing Floppy R3 Auto-Perf..."; cp -f $home/00-floppy-perf.sh /data/adb/service.d/00-floppy-perf.sh; chmod 755 /data/adb/service.d/00-floppy-perf.sh; fi' "$TMP_AK3_DIR/anykernel.sh"
+            sed -i 's/kernel.string=.*/kernel.string=FloppyKernel-Zareth by Zareth/' "$TMP_AK3_DIR/anykernel.sh"
+            sed -i '/write_boot;/a if [ -d /data/adb/service.d ]; then ui_print "  • Installing FloppyKernel-Zareth Auto-Perf..."; cp -f $home/00-floppy-perf.sh /data/adb/service.d/00-floppy-perf.sh; chmod 755 /data/adb/service.d/00-floppy-perf.sh; fi' "$TMP_AK3_DIR/anykernel.sh"
           fi
 
           cd "$TMP_AK3_DIR"
@@ -369,7 +396,12 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/output
           RELEASE_TAG="${{ inputs.release_tag }}"
-          echo "=== Uploading $FINAL_ZIP to Release: $RELEASE_TAG ==="
+          echo "=== Publishing $FINAL_ZIP to Release: $RELEASE_TAG ==="
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" &>/dev/null; then
+            echo "Creating new release: $RELEASE_TAG"
+            gh release create "$RELEASE_TAG" "$FINAL_ZIP" --repo "$GITHUB_REPOSITORY" --title "FloppyKernel-Zareth - Revision 4" --notes "FloppyKernel-Zareth Revision 4 with LZO-RLE ZRAM, SukiSU UAPI v6 + SuSFS 2.2.0, Adreno 610 GPU Turbo, BFQ MQ, and Ultra-Perf."
+            exit 0
+          fi
           for attempt in {1..5}; do
             echo "Upload attempt $attempt..."
             if gh release upload "$RELEASE_TAG" "$FINAL_ZIP" --repo "$GITHUB_REPOSITORY" --clobber; then
