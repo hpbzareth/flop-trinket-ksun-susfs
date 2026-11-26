@@ -41,7 +41,7 @@ on:
         description: "GitHub Release Tag to publish/update"
         required: false
         type: string
-        default: "Revision-4"
+        default: "Revision-5"
       make_release:
         description: "Publish/Attach to GitHub Release"
         required: false
@@ -133,17 +133,30 @@ jobs:
             sed -i 's/LOG_UPLOAD=1/LOG_UPLOAD=0/' build/ckbuild.sh
           fi
 
-          # 4. Inject FloppyKernel-Zareth (Revision 4) Ultra Optimizations
-          echo "=== Injecting FloppyKernel-Zareth (Revision 4) Ultra Optimizations ==="
-          
-          # A. Network & BBR with FQ hardware pacing
+          # 4. Inject FloppyKernel-Zareth (Revision 5) 5.x Backports & Ultra Optimizations
+          echo "=== Applying Zareth Revision 5 (BBRv2 + sch_cake + BFQ + 5.x TCP Tunings) ==="
+          sed -i 's/\r$//' "$GITHUB_WORKSPACE/backports/verify_zareth_config.sh"
+          python3 "$GITHUB_WORKSPACE/backports/apply_zareth_r5.py" "$GITHUB_WORKSPACE/kernel" "$GITHUB_WORKSPACE/backports"
+
+          # A. Network: Official Google BBRv2 (default) + BBRv1 + FQ Pacing (default) + CAKE AQM
+          sed -i 's/^# CONFIG_TCP_CONG_BBR is not set$/CONFIG_TCP_CONG_BBR=y\nCONFIG_TCP_CONG_BBR2=y/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/^CONFIG_DEFAULT_CUBIC=y$/# CONFIG_DEFAULT_CUBIC is not set\nCONFIG_DEFAULT_BBR2=y/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/^CONFIG_DEFAULT_TCP_CONG="cubic"$/CONFIG_DEFAULT_TCP_CONG="bbr2"/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/^# CONFIG_NET_SCH_FQ is not set$/CONFIG_NET_SCH_FQ=y\nCONFIG_NET_SCH_CAKE=y/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/^CONFIG_DEFAULT_FQ_CODEL=y$/# CONFIG_DEFAULT_FQ_CODEL is not set\nCONFIG_DEFAULT_FQ=y/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/^CONFIG_DEFAULT_NET_SCH="fq_codel"$/CONFIG_DEFAULT_NET_SCH="fq"/' arch/arm64/configs/vendor/trinket-perf_defconfig
           {
             echo "CONFIG_TCP_CONG_ADVANCED=y"
             echo "CONFIG_TCP_CONG_BBR=y"
-            echo 'CONFIG_DEFAULT_TCP_CONG="bbr"'
+            echo "CONFIG_TCP_CONG_BBR2=y"
+            echo "# CONFIG_DEFAULT_CUBIC is not set"
+            echo "CONFIG_DEFAULT_BBR2=y"
+            echo 'CONFIG_DEFAULT_TCP_CONG="bbr2"'
             echo "CONFIG_NET_SCH_FQ=y"
-            echo 'CONFIG_DEFAULT_NET_SCH="fq"'
+            echo "CONFIG_NET_SCH_CAKE=y"
+            echo "# CONFIG_DEFAULT_FQ_CODEL is not set"
             echo "CONFIG_DEFAULT_FQ=y"
+            echo 'CONFIG_DEFAULT_NET_SCH="fq"'
           } >> arch/arm64/configs/vendor/xiaomi-trinket.config
 
           # B. ZRAM LZO-RLE Ultra-Fast Low-Latency Compression
@@ -166,12 +179,21 @@ jobs:
           } >> arch/arm64/configs/vendor/xiaomi-trinket.config
 
           # D. Frame-Perfect 300Hz Timer Frequency (Divides evenly into 60 FPS: 5 ticks/frame)
-          sed -i 's/CONFIG_HZ_250=y/CONFIG_HZ_300=y/' arch/arm64/configs/vendor/trinket-perf_defconfig
-          sed -i 's/CONFIG_HZ=250/CONFIG_HZ=300/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/^CONFIG_HZ_250=y$/# CONFIG_HZ_250 is not set/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/^# CONFIG_HZ_300 is not set$/CONFIG_HZ_300=y/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/^CONFIG_HZ=250$/CONFIG_HZ=300/' arch/arm64/configs/vendor/trinket-perf_defconfig
 
-          # E. Multi-Queue I/O Scheduler: BFQ for eMMC 5.1 Storage (Foreground UI priority)
-          sed -i 's/# CONFIG_IOSCHED_BFQ is not set/CONFIG_IOSCHED_BFQ=y\nCONFIG_BFQ_GROUP_IOSCHED=y/' arch/arm64/configs/vendor/trinket-perf_defconfig
-          sed -i 's/CONFIG_DEFAULT_MQ_IOSCHED="kyber"/CONFIG_DEFAULT_MQ_IOSCHED="bfq"/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          # E. Multi-Queue I/O Scheduler: BFQ Default for eMMC 5.1 Storage (Foreground UI priority)
+          sed -i 's/^# CONFIG_IOSCHED_BFQ is not set$/CONFIG_IOSCHED_BFQ=y\nCONFIG_BFQ_GROUP_IOSCHED=y/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/^CONFIG_DEFAULT_MQ_KYBER=y$/# CONFIG_DEFAULT_MQ_KYBER is not set\nCONFIG_DEFAULT_MQ_BFQ=y/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          sed -i 's/^CONFIG_DEFAULT_MQ_IOSCHED="kyber"$/CONFIG_DEFAULT_MQ_IOSCHED="bfq"/' arch/arm64/configs/vendor/trinket-perf_defconfig
+          {
+            echo "CONFIG_IOSCHED_BFQ=y"
+            echo "CONFIG_BFQ_GROUP_IOSCHED=y"
+            echo "# CONFIG_DEFAULT_MQ_KYBER is not set"
+            echo "CONFIG_DEFAULT_MQ_BFQ=y"
+            echo 'CONFIG_DEFAULT_MQ_IOSCHED="bfq"'
+          } >> arch/arm64/configs/vendor/xiaomi-trinket.config
 
           # F. Touchscreen Latency Stripping (Disable debug logging on touch interrupts)
           sed -i 's/CONFIG_TOUCHSCREEN_HIMAX_DEBUG=y/# CONFIG_TOUCHSCREEN_HIMAX_DEBUG is not set/' arch/arm64/configs/vendor/trinket-perf_defconfig
@@ -187,6 +209,12 @@ jobs:
           # H. Kernel Branding & Clean Localversion (FloppyKernel-Zareth)
           sed -i 's/CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION="-FloppyKernel-Zareth"/' arch/arm64/configs/vendor/trinket-perf_defconfig
           sed -i 's/CONFIG_LOCALVERSION_AUTO=y/# CONFIG_LOCALVERSION_AUTO is not set/' arch/arm64/configs/vendor/trinket-perf_defconfig
+
+          # I. Fail-fast .config assertion before compilation inside build/scripts/build.sh
+          if [ -f "build/scripts/build.sh" ]; then
+            sed -i 's|## Start the build|bash "$GITHUB_WORKSPACE/backports/verify_zareth_config.sh" "$KDIR/out/.config"\n\n    ## Start the build|' build/scripts/build.sh
+            grep -q 'verify_zareth_config.sh' build/scripts/build.sh
+          fi
 
           VARIANT="${{ matrix.variant }}"
           BUILD_OPTS="c"
@@ -318,56 +346,18 @@ jobs:
           echo "=== Injecting 00-floppy-perf.sh post-boot script into AnyKernel3 ==="
           TMP_AK3_DIR=$(mktemp -d)
           unzip -q "$RAW_ZIP" -d "$TMP_AK3_DIR"
-          cat << 'EOF' > "$TMP_AK3_DIR/00-floppy-perf.sh"
-            #!/system/bin/sh
-            # FloppyKernel-Zareth Auto-Perf & System Tuning Service
-
-            # 1. ZRAM LZO-RLE Runtime Enforcement & Memory Tuning
-            if [ -e /sys/block/zram0/comp_algorithm ]; then
-              echo "lzo-rle" > /sys/block/zram0/comp_algorithm 2>/dev/null
-            fi
-            echo 0 > /proc/sys/vm/page-cluster 2>/dev/null
-            echo 100 > /proc/sys/vm/swappiness 2>/dev/null
-
-            # 2. GPU Adreno 610 Max Power & Turbo 950MHz
-            echo 0 > /sys/class/kgsl/kgsl-3d0/max_pwrlevel 2>/dev/null
-            echo 3 > /sys/class/kgsl/kgsl-3d0/min_pwrlevel 2>/dev/null
-            echo 0 > /sys/class/kgsl/kgsl-3d0/throttling 2>/dev/null
-
-            # 3. CPU Auto-Perf Schedutil Ramp-Up & WALT
-            for pol in /sys/devices/system/cpu/cpufreq/policy*; do
-              echo 500 > $pol/schedutil/up_rate_limit_us 2>/dev/null
-              echo 20000 > $pol/schedutil/down_rate_limit_us 2>/dev/null
-              echo 1000 > $pol/schedutil/rate_limit_us 2>/dev/null
-            done
-
-            # 4. Storage & eMMC 5.1 Optimization (BFQ + 128KB Read-ahead)
-            for blk in /sys/block/mmcblk*; do
-              echo bfq > $blk/queue/scheduler 2>/dev/null
-              echo 128 > $blk/queue/read_ahead_kb 2>/dev/null
-              echo 0 > $blk/queue/add_random 2>/dev/null
-              echo 0 > $blk/queue/iostats 2>/dev/null
-              echo 0 > $blk/queue/rotational 2>/dev/null
-            done
-
-            # 5. Storage & VM Memory Tuning
-            echo 5 > /proc/sys/vm/dirty_background_ratio 2>/dev/null
-            echo 15 > /proc/sys/vm/dirty_ratio 2>/dev/null
-            echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
-            echo 10 > /proc/sys/vm/stat_interval 2>/dev/null
-
-            # 6. TCP & Network Acceleration (BBR, TCP Fast Open)
-            echo 3 > /proc/sys/net/ipv4/tcp_fastopen 2>/dev/null
-            echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
-
-            # 7. Power Efficiency for Sleep / Idle
-            echo Y > /sys/module/workqueue/parameters/power_efficient 2>/dev/null
-          EOF
+          cp -f "$GITHUB_WORKSPACE/backports/00-floppy-perf.sh" "$TMP_AK3_DIR/00-floppy-perf.sh"
+          sed -i 's/\r$//' "$TMP_AK3_DIR/00-floppy-perf.sh"
           chmod 755 "$TMP_AK3_DIR/00-floppy-perf.sh"
 
           if [ -f "$TMP_AK3_DIR/anykernel.sh" ]; then
-            sed -i 's/kernel.string=.*/kernel.string=FloppyKernel-Zareth by Zareth/' "$TMP_AK3_DIR/anykernel.sh"
-            sed -i '/write_boot;/a if [ -d /data/adb/service.d ]; then ui_print "  • Installing FloppyKernel-Zareth Auto-Perf..."; cp -f $home/00-floppy-perf.sh /data/adb/service.d/00-floppy-perf.sh; chmod 755 /data/adb/service.d/00-floppy-perf.sh; fi' "$TMP_AK3_DIR/anykernel.sh"
+            sed -i 's/kernel.string=.*/kernel.string=FloppyKernel-Zareth R5 by Zareth/' "$TMP_AK3_DIR/anykernel.sh"
+            grep -q '^flash_boot;' "$TMP_AK3_DIR/anykernel.sh"
+            sed -i '/^flash_boot;/a if [ -d /data/adb ]; then mkdir -p /data/adb/service.d; ui_print "  • Installing FloppyKernel-Zareth Auto-Perf..."; cp -f $AKHOME/00-floppy-perf.sh /data/adb/service.d/00-floppy-perf.sh; chmod 755 /data/adb/service.d/00-floppy-perf.sh; fi' "$TMP_AK3_DIR/anykernel.sh"
+            grep -q '00-floppy-perf.sh' "$TMP_AK3_DIR/anykernel.sh"
+          else
+            echo "::error::anykernel.sh missing inside $RAW_ZIP"
+            exit 1
           fi
 
           cd "$TMP_AK3_DIR"
@@ -384,6 +374,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Trinket-${{ inputs.target_device }}-${{ matrix.variant }}-${{ steps.package.outputs.build_date }}
+          include-hidden-files: true
           path: |
             ${{ github.workspace }}/output/*
             ${{ github.workspace }}/kernel/out/.config
@@ -399,8 +390,7 @@ jobs:
           echo "=== Publishing $FINAL_ZIP to Release: $RELEASE_TAG ==="
           if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" &>/dev/null; then
             echo "Creating new release: $RELEASE_TAG"
-            gh release create "$RELEASE_TAG" "$FINAL_ZIP" --repo "$GITHUB_REPOSITORY" --title "FloppyKernel-Zareth - Revision 4" --notes "FloppyKernel-Zareth Revision 4 with LZO-RLE ZRAM, SukiSU UAPI v6 + SuSFS 2.2.0, Adreno 610 GPU Turbo, BFQ MQ, and Ultra-Perf."
-            exit 0
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "FloppyKernel-Zareth - Revision 5" --notes "FloppyKernel-Zareth Revision 5: Linux 5.13 Google BBRv2 + FQ Pacing, backported sch_cake (4.19/5.x AQM), BFQ MQ default, 300Hz timer, LZO-RLE ZRAM, SukiSU UAPI v6 + SuSFS 2.2.0, and C-baked TCP/Socket/NAPI Internet stack." || true
           fi
           for attempt in {1..5}; do
             echo "Upload attempt $attempt..."
